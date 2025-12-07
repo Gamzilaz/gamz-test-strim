@@ -306,6 +306,7 @@
 
     // --- WebRTC Call Logic ---
     let pc = null;
+    let role = null; // 'offer' | 'answer'
     const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
     function setCallStatus(text, tone = 'neutral') {
@@ -322,6 +323,7 @@
     function resetPeer() {
       if (pc) { try { pc.ontrack = null; pc.onicecandidate = null; pc.onconnectionstatechange = null; pc.close(); } catch (e) {} }
       pc = null;
+      role = null;
       remoteVideo.srcObject = null;
       setCallStatus('Ожидает действий');
     }
@@ -342,12 +344,13 @@
         if (connection.iceGatheringState === 'complete') return resolve();
         const checkState = () => { if (connection.iceGatheringState === 'complete') { connection.removeEventListener('icegatheringstatechange', checkState); resolve(); } };
         connection.addEventListener('icegatheringstatechange', checkState);
-        setTimeout(resolve, 2000);
+        setTimeout(resolve, 1500);
       });
     }
 
     function slimSdp(sdp) {
-      const keepPrefixes = ['v=', 'o=', 's=', 't=', 'a=group:BUNDLE', 'a=msid-semantic', 'm=', 'c=', 'a=mid:', 'a=setup:', 'a=ice-ufrag:', 'a=ice-pwd:', 'a=fingerprint:', 'a=rtcp-mux', 'a=rtcp-rsize', 'a=sendrecv', 'a=sendonly', 'a=recvonly', 'a=inactive', 'a=msid:', 'a=ssrc', 'a=ssrc-group', 'a=rtpmap:', 'a=rtcp-fb:', 'a=fmtp:', 'a=extmap', 'a=candidate:'];
+      // оставляем только критичные строки, по одному ICE-кандидату на mid
+      const keepPrefixes = ['v=', 'o=', 's=', 't=', 'a=group:BUNDLE', 'm=', 'c=', 'a=mid:', 'a=setup:', 'a=ice-ufrag:', 'a=ice-pwd:', 'a=fingerprint:', 'a=rtcp-mux', 'a=sendrecv', 'a=msid:', 'a=rtpmap:', 'a=fmtp:', 'a=ssrc', 'a=candidate:'];
       const lines = sdp.split('\n').map(l => l.trim()).filter(Boolean);
       const essential = [];
       let currentMid = '0';
@@ -356,7 +359,7 @@
         if (line.startsWith('a=mid:')) currentMid = line.slice(6) || '0';
         if (line.startsWith('a=candidate:')) {
           candCount[currentMid] = (candCount[currentMid] || 0) + 1;
-          if (candCount[currentMid] > 1) continue; // берем только первый кандидат на mid
+          if (candCount[currentMid] > 1) continue;
         }
         if (keepPrefixes.some(p => line.startsWith(p))) essential.push(line);
       }
@@ -389,23 +392,31 @@
       }
     }
 
-    function createPeerConnection() {
-      resetPeer();
-      pc = new RTCPeerConnection(rtcConfig);
-      pc.onicecandidate = null; // в SDP после ожидания icecomplete
-      pc.ontrack = (event) => {
-        remoteVideo.srcObject = event.streams[0];
-        remoteVideo.muted = false;
-        remoteVideo.play().catch(() => {});
-        setCallStatus('Друг в эфире', 'success');
-      };
-      pc.onconnectionstatechange = () => {
-        const st = pc.connectionState;
-        if (st === 'connected') setCallStatus('Соединение установлено', 'success');
-        else if (st === 'connecting') setCallStatus('Подключаемся...', 'info');
-        else if (['failed', 'disconnected'].includes(st)) setCallStatus('Соединение прервано', 'error');
-      };
+    function createPeerConnection(forceNew = false) {
+      if (forceNew || !pc) {
+        if (forceNew) resetPeer();
+        pc = new RTCPeerConnection(rtcConfig);
+        pc.onicecandidate = null; // собираем ICE в SDP после ожидания icecomplete
+        pc.ontrack = (event) => {
+          remoteVideo.srcObject = event.streams[0];
+          remoteVideo.muted = false;
+          remoteVideo.play().catch(() => {});
+          setCallStatus('Друг в эфире', 'success');
+        };
+        pc.onconnectionstatechange = () => {
+          const st = pc.connectionState;
+          if (st === 'connected') setCallStatus('Соединение установлено', 'success');
+          else if (st === 'connecting') setCallStatus('Подключаемся...', 'info');
+          else if (['failed', 'disconnected'].includes(st)) setCallStatus('Соединение прервано', 'error');
+        };
+      }
       return pc;
+    }
+
+    function addStreamToPeer(stream) {
+      if (!pc || !stream) return;
+      const existing = pc.getSenders().map(s => s.track?.id);
+      stream.getTracks().forEach((t) => { if (!existing.includes(t.id)) pc.addTrack(t, stream); });
     }
 
     async function createInvite() {
@@ -413,8 +424,9 @@
         setCallStatus('Создаем код...', 'info');
         const stream = await ensureCameraStream(true);
         if (!stream) return;
-        const peer = createPeerConnection();
-        stream.getTracks().forEach((t) => peer.addTrack(t, stream));
+        role = 'offer';
+        const peer = createPeerConnection(true);
+        addStreamToPeer(stream);
         const offer = await peer.createOffer();
         await peer.setLocalDescription(offer);
         await waitForIceComplete(peer);
@@ -436,9 +448,12 @@
         setCallStatus('Подключаемся...', 'info');
         const stream = await ensureCameraStream(true);
         if (!stream) return;
-        const peer = createPeerConnection();
-        stream.getTracks().forEach((t) => peer.addTrack(t, stream));
+
+        // Если к нам пришёл offer, мы отвечаем
         if (remoteDesc.type === 'offer') {
+          role = 'answer';
+          const peer = createPeerConnection(true);
+          addStreamToPeer(stream);
           await peer.setRemoteDescription(remoteDesc);
           const answer = await peer.createAnswer();
           await peer.setLocalDescription(answer);
@@ -447,9 +462,18 @@
           inviteOut.value = answerCode;
           try { await navigator.clipboard.writeText(answerCode); } catch (e) {}
           setCallStatus(`Ответ готов (${answerCode.length} симв.) — отправьте инициатору`, 'success');
-        } else {
-          await peer.setRemoteDescription(remoteDesc);
+          return;
+        }
+
+        // Если к нам пришёл answer, мы инициатор — просто доклеиваем
+        if (remoteDesc.type === 'answer') {
+          if (!pc || role !== 'offer' || !pc.localDescription) {
+            setCallStatus('Сначала создайте свой код (offer)', 'error');
+            return;
+          }
+          await pc.setRemoteDescription(remoteDesc);
           setCallStatus('Подключено!', 'success');
+          return;
         }
       } catch (err) {
         console.error(err);
