@@ -41,7 +41,7 @@
   <main class="grid grid-cols-1 xl:grid-cols-3 gap-6 p-6 max-w-6xl mx-auto">
     <section class="xl:col-span-2 glass border border-white/10 rounded-2xl overflow-hidden shadow-2xl shadow-indigo-900/30">
       <div class="relative aspect-video bg-slate-900 flex items-center justify-center">
-        <video id="stream" class="w-full h-full object-cover" autoplay muted playsinline></video>
+        <video id="previewVideo" class="w-full h-full object-cover" autoplay muted playsinline></video>
         <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 to-transparent pointer-events-none"></div>
         <div class="absolute bottom-4 left-4 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-sm" id="liveLabel">Подключение...</div>
         <div class="absolute bottom-4 right-4 px-3 py-2 rounded-xl bg-black/40 border border-white/10 text-xs text-slate-200">Разрешите доступ к камере — вы увидите себя</div>
@@ -109,7 +109,8 @@
       <div class="flex items-center justify-between gap-4 px-5 py-4 border-b border-white/5 flex-wrap">
         <div>
           <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Созвон с другом</p>
-          <h2 class="text-xl font-semibold">P2P WebRTC</h2>
+          <h2 class="text-xl font-semibold">P2P WebRTC (короткий код)</h2>
+          <p class="text-xs text-slate-400">Шаг 1: Создать код → отправить. Шаг 2: Вставить код друга → Подключиться.</p>
         </div>
         <div class="flex items-center gap-2 text-xs">
           <span id="callStatus" class="px-3 py-1 rounded-full bg-white/10 border border-white/10 text-slate-200">Ожидает действий</span>
@@ -132,7 +133,7 @@
         
         <div class="p-4 rounded-xl border border-white/10 bg-white/5 space-y-4">
           <div class="flex items-center justify-between gap-2">
-            <h3 class="font-semibold">Позвонить другу</h3>
+            <h3 class="font-semibold">Обмен кодом</h3>
             <div class="flex gap-2">
               <button id="createOfferBtn" class="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm">Создать код</button>
               <button id="connectBtn" class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm">Подключиться</button>
@@ -143,7 +144,7 @@
             <div class="space-y-2">
               <label class="text-xs text-slate-400">Ваш код (отправьте другу)</label>
               <div class="flex gap-2">
-                <textarea id="inviteOut" rows="2" class="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-xs font-mono" placeholder="Нажмите Создать код"></textarea>
+                <textarea id="inviteOut" rows="2" class="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-xs font-mono" placeholder="Нажмите \"Создать код\""></textarea>
                 <button id="copyInvite" class="px-3 py-2 rounded-lg bg-white/10 border border-white/10 text-xs whitespace-nowrap">Копия</button>
               </div>
             </div>
@@ -155,6 +156,7 @@
               </div>
             </div>
           </div>
+          <p class="text-[11px] text-slate-400">Код максимально сжат. Если соединение не идет, убедитесь, что оба отправили/получили свой код (offer/answer).</p>
         </div>
       </div>
     </section>
@@ -168,7 +170,7 @@
     const autoScroll = document.getElementById('autoScroll');
     const userSelect = document.getElementById('userSelect');
     const viewerCount = document.getElementById('viewerCount');
-    const streamEl = document.getElementById('stream');
+    const previewVideo = document.getElementById('previewVideo');
     const localVideo = document.getElementById('localVideo');
     const muteBtn = document.getElementById('muteBtn');
     const pipBtn = document.getElementById('pipBtn');
@@ -189,16 +191,8 @@
     const demoFallback = 'https://cdn.coverr.co/videos/coverr-tech-meeting-1607/1080p.mp4';
     let cameraStream = null;
 
-    const badges = {
-      'Вы': 'Ведущий',
-      'Друг': 'Участник'
-    };
-
-    const colors = {
-      'Вы': 'from-indigo-500 to-fuchsia-500',
-      'Друг': 'from-emerald-500 to-cyan-500'
-    };
-
+    const badges = { 'Вы': 'Ведущий', 'Друг': 'Участник' };
+    const colors = { 'Вы': 'from-indigo-500 to-fuchsia-500', 'Друг': 'from-emerald-500 to-cyan-500' };
     const sampleMessages = [
       { user: 'Вы', text: 'Привет! Готов начать созвон 🚀' },
       { user: 'Друг', text: 'Привет! Я тут 👋' }
@@ -207,14 +201,11 @@
     function addMessage(user, text) {
       const wrap = document.createElement('div');
       wrap.className = 'p-3 rounded-xl bg-white/5 border border-white/5 shadow-sm shadow-black/20';
-
       const head = document.createElement('div');
       head.className = 'flex items-center gap-2 mb-1';
-
       const avatar = document.createElement('div');
       avatar.className = `h-8 w-8 rounded-full bg-gradient-to-br ${colors[user] || 'from-slate-500 to-slate-700'} flex items-center justify-center text-xs font-semibold uppercase`;
       avatar.textContent = user.slice(0, 2);
-
       const name = document.createElement('div');
       name.className = 'flex items-center gap-2';
       const userEl = document.createElement('span');
@@ -224,18 +215,13 @@
       badge.className = 'text-[11px] px-2 py-[2px] rounded-full bg-white/10 border border-white/10 text-slate-200';
       badge.textContent = badges[user] || 'Зритель';
       name.append(userEl, badge);
-
       head.append(avatar, name);
-
       const body = document.createElement('p');
       body.className = 'text-sm text-slate-200 leading-relaxed';
       body.textContent = text;
-
       wrap.append(head, body);
       chat.appendChild(wrap);
-      if (autoScroll.checked) {
-        chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' });
-      }
+      if (autoScroll.checked) chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' });
     }
 
     function sendMessage() {
@@ -248,45 +234,31 @@
     }
 
     sendBtn.addEventListener('click', sendMessage);
-    messageInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') sendMessage();
-    });
-    clearBtn.addEventListener('click', () => {
-      chat.innerHTML = '';
-    });
+    messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+    clearBtn.addEventListener('click', () => { chat.innerHTML = ''; });
 
     muteBtn.addEventListener('click', () => {
-      streamEl.muted = !streamEl.muted;
-      muteBtn.textContent = streamEl.muted ? '🔇 Без звука' : '🔈 Звук';
+      const track = cameraStream?.getAudioTracks?.()[0];
+      if (track) track.enabled = !track.enabled;
+      muteBtn.textContent = track && !track.enabled ? '🔇 Без звука' : '🔈 Звук';
+      previewVideo.muted = true;
+      localVideo.muted = true;
     });
 
     pipBtn.addEventListener('click', async () => {
       try {
-        if (document.pictureInPictureElement) {
-          await document.exitPictureInPicture();
-        } else {
-          if (!streamEl.disablePictureInPicture) {
-            await streamEl.requestPictureInPicture();
-          }
-        }
-      } catch (err) {
-        alert('PiP недоступен в этом браузере');
-      }
+        if (document.pictureInPictureElement) await document.exitPictureInPicture();
+        else if (!previewVideo.disablePictureInPicture) await previewVideo.requestPictureInPicture();
+      } catch (err) { alert('PiP недоступен в этом браузере'); }
     });
 
     fullBtn.addEventListener('click', () => {
-      if (!document.fullscreenElement) {
-        streamEl.requestFullscreen?.();
-      } else {
-        document.exitFullscreen?.();
-      }
+      if (!document.fullscreenElement) previewVideo.requestFullscreen?.();
+      else document.exitFullscreen?.();
     });
 
     function stopCameraTracks() {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach((t) => t.stop());
-        cameraStream = null;
-      }
+      if (cameraStream) { cameraStream.getTracks().forEach((t) => t.stop()); cameraStream = null; }
     }
 
     async function startCamera() {
@@ -295,18 +267,12 @@
       startCam.disabled = true;
       startCam.classList.add('opacity-70');
       stopCameraTracks();
-
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: true
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
         cameraStream = stream;
-        streamEl.srcObject = stream;
-        streamEl.muted = true;
-        localVideo.srcObject = stream;
-        localVideo.muted = true;
-        await streamEl.play();
+        [previewVideo, localVideo].forEach(v => { v.srcObject = stream; v.muted = v.id !== 'remoteVideo'; });
+        await previewVideo.play().catch(() => {});
+        await localVideo.play().catch(() => {});
         statusText.textContent = 'Камера активна — вы в кадре';
         liveLabel.textContent = 'Вы в эфире';
         startCam.textContent = '🔄 Перезапустить камеру';
@@ -314,11 +280,12 @@
         console.warn('Камера недоступна, включаем демо', err);
         statusText.textContent = 'Камера недоступна — показ демо';
         liveLabel.textContent = 'Демо стрим';
-        streamEl.srcObject = null;
-        streamEl.src = demoFallback;
-        streamEl.muted = true;
-        streamEl.loop = true;
-        await streamEl.play().catch(() => {});
+        previewVideo.srcObject = null;
+        previewVideo.src = demoFallback;
+        previewVideo.muted = true;
+        previewVideo.loop = true;
+        await previewVideo.play().catch(() => {});
+        localVideo.srcObject = previewVideo.srcObject;
         startCam.textContent = 'Повторить запрос камеры';
         cameraStream = null;
       } finally {
@@ -330,19 +297,15 @@
 
     startCam.addEventListener('click', startCamera);
 
-    // Fake viewer counter pulse
     setInterval(() => {
-      const base = 3482;
-      const jitter = Math.floor(Math.random() * 40) - 20;
+      const base = 3482; const jitter = Math.floor(Math.random() * 40) - 20;
       viewerCount.textContent = (base + jitter).toLocaleString('ru-RU');
     }, 2000);
 
-    // Seed messages
     sampleMessages.forEach((m) => addMessage(m.user, m.text));
 
     // --- WebRTC Call Logic ---
     let pc = null;
-    let isInitiator = false;
     const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
     function setCallStatus(text, tone = 'neutral') {
@@ -357,17 +320,9 @@
     }
 
     function resetPeer() {
-      if (pc) {
-        try {
-          pc.ontrack = null;
-          pc.onicecandidate = null;
-          pc.onconnectionstatechange = null;
-          pc.close();
-        } catch (e) {}
-      }
+      if (pc) { try { pc.ontrack = null; pc.onicecandidate = null; pc.onconnectionstatechange = null; pc.close(); } catch (e) {} }
       pc = null;
       remoteVideo.srcObject = null;
-      isInitiator = false;
       setCallStatus('Ожидает действий');
     }
 
@@ -375,14 +330,9 @@
 
     async function ensureCameraStream(required = false) {
       if (cameraStream) return cameraStream;
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCallStatus('Камера не поддерживается', 'error');
-        return null;
-      }
+      if (!navigator.mediaDevices?.getUserMedia) { setCallStatus('Камера не поддерживается', 'error'); return null; }
       const stream = await startCamera();
-      if (!stream && required) {
-        setCallStatus('Нужна доступная камера для звонка', 'error');
-      }
+      if (!stream && required) setCallStatus('Нужна доступная камера для звонка', 'error');
       return stream;
     }
 
@@ -390,65 +340,51 @@
       return new Promise((resolve) => {
         if (!connection) return resolve();
         if (connection.iceGatheringState === 'complete') return resolve();
-        const checkState = () => {
-          if (connection.iceGatheringState === 'complete') {
-            connection.removeEventListener('icegatheringstatechange', checkState);
-            resolve();
-          }
-        };
+        const checkState = () => { if (connection.iceGatheringState === 'complete') { connection.removeEventListener('icegatheringstatechange', checkState); resolve(); } };
         connection.addEventListener('icegatheringstatechange', checkState);
-        setTimeout(resolve, 3000);
+        setTimeout(resolve, 2000);
       });
     }
 
-    function buildShortCode(desc) {
-      const sdp = desc.sdp;
-      const lines = sdp.split('\n');
+    function slimSdp(sdp) {
+      const keepPrefixes = ['v=', 'o=', 's=', 't=', 'a=group:BUNDLE', 'a=msid-semantic', 'm=', 'c=', 'a=mid:', 'a=setup:', 'a=ice-ufrag:', 'a=ice-pwd:', 'a=fingerprint:', 'a=rtcp-mux', 'a=rtcp-rsize', 'a=sendrecv', 'a=sendonly', 'a=recvonly', 'a=inactive', 'a=msid:', 'a=ssrc', 'a=ssrc-group', 'a=rtpmap:', 'a=rtcp-fb:', 'a=fmtp:', 'a=extmap', 'a=candidate:'];
+      const lines = sdp.split('\n').map(l => l.trim()).filter(Boolean);
       const essential = [];
-      
+      let currentMid = '0';
+      const candCount = {};
       for (const line of lines) {
-        if (line.startsWith('v=') || line.startsWith('o=') || line.startsWith('s=') || 
-            line.startsWith('t=') || line.startsWith('a=group:BUNDLE') ||
-            line.startsWith('m=') || line.startsWith('a=mid:') ||
-            line.startsWith('a=setup:') || line.startsWith('a=ice-ufrag:') ||
-            line.startsWith('a=ice-pwd:') || line.startsWith('a=fingerprint:') ||
-            line.startsWith('a=sendrecv') || line.startsWith('a=rtcp-mux') ||
-            line.startsWith('a=rtcp-fb') || line.startsWith('a=rtpmap') ||
-            line.startsWith('a=fmtp') || line.startsWith('c=')) {
-          essential.push(line);
+        if (line.startsWith('a=mid:')) currentMid = line.slice(6) || '0';
+        if (line.startsWith('a=candidate:')) {
+          candCount[currentMid] = (candCount[currentMid] || 0) + 1;
+          if (candCount[currentMid] > 1) continue; // берем только первый кандидат на mid
         }
+        if (keepPrefixes.some(p => line.startsWith(p))) essential.push(line);
       }
-      
-      const compactSdp = essential.join('\n');
-      const data = {
-        t: desc.type === 'offer' ? 'o' : 'a',
-        s: compactSdp
-      };
-      
+      return essential.join('\n');
+    }
+
+    function buildShortCode(desc) {
+      const compactSdp = slimSdp(desc.sdp);
+      const data = { t: desc.type === 'offer' ? 'o' : 'a', s: compactSdp };
       const json = JSON.stringify(data);
-      const compressed = pako.deflate(json, { level: 9 });
-      
+      const compressed = pako.deflateRaw(json, { level: 9 });
       let binary = '';
-      for (let i = 0; i < compressed.byteLength; i++) {
-        binary += String.fromCharCode(compressed[i]);
-      }
-      return btoa(binary);
+      for (let i = 0; i < compressed.length; i++) binary += String.fromCharCode(compressed[i]);
+      return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
     }
 
     function parseShortCode(str) {
       try {
-        const binary = atob(str.trim());
+        const padded = str.trim().replace(/-/g, '+').replace(/_/g, '/');
+        const binary = atob(padded);
         const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-          bytes[i] = binary.charCodeAt(i);
-        }
-        const decompressed = pako.inflate(bytes, { to: 'string' });
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const decompressed = pako.inflateRaw(bytes, { to: 'string' });
         const data = JSON.parse(decompressed);
         const type = data.t === 'o' ? 'offer' : 'answer';
         return new RTCSessionDescription({ type, sdp: data.s });
       } catch (err) {
-        console.error('Parse error:', err);
-        setCallStatus('Ошибка кода приглашения', 'error');
+        alert('Неверный или поврежденный код приглашения');
         return null;
       }
     }
@@ -456,30 +392,19 @@
     function createPeerConnection() {
       resetPeer();
       pc = new RTCPeerConnection(rtcConfig);
-      
-      pc.onicecandidate = null;
-      
+      pc.onicecandidate = null; // в SDP после ожидания icecomplete
       pc.ontrack = (event) => {
-        console.log('Получен remote track:', event.track.kind);
         remoteVideo.srcObject = event.streams[0];
-        remoteVideo.play().catch(e => console.error('Play error:', e));
+        remoteVideo.muted = false;
+        remoteVideo.play().catch(() => {});
         setCallStatus('Друг в эфире', 'success');
-        addMessage('Вы', 'Видео друга получено!');
       };
-      
       pc.onconnectionstatechange = () => {
-        console.log('Connection state:', pc.connectionState);
-        if (pc.connectionState === 'connected') {
-          setCallStatus('Соединение установлено', 'success');
-          addMessage('Вы', 'Соединение с другом установлено! 🎉');
-        } else if (pc.connectionState === 'connecting') {
-          setCallStatus('Подключаемся...', 'info');
-        } else if (['failed', 'disconnected'].includes(pc.connectionState)) {
-          setCallStatus('Соединение потеряно', 'error');
-          addMessage('Вы', 'Соединение разорвано');
-        }
+        const st = pc.connectionState;
+        if (st === 'connected') setCallStatus('Соединение установлено', 'success');
+        else if (st === 'connecting') setCallStatus('Подключаемся...', 'info');
+        else if (['failed', 'disconnected'].includes(st)) setCallStatus('Соединение прервано', 'error');
       };
-      
       return pc;
     }
 
@@ -488,100 +413,60 @@
         setCallStatus('Создаем код...', 'info');
         const stream = await ensureCameraStream(true);
         if (!stream) return;
-        
         const peer = createPeerConnection();
-        isInitiator = true;
-        
-        stream.getTracks().forEach((t) => {
-          console.log('Adding track:', t.kind);
-          peer.addTrack(t, stream);
-        });
-        
+        stream.getTracks().forEach((t) => peer.addTrack(t, stream));
         const offer = await peer.createOffer();
         await peer.setLocalDescription(offer);
         await waitForIceComplete(peer);
-        
         const code = buildShortCode(peer.localDescription);
         inviteOut.value = code;
-        setCallStatus('Код готов! Отправьте другу', 'success');
-        addMessage('Вы', 'Приглашение создано, отправьте код другу');
+        setCallStatus(`Код готов (${code.length} симв.) — отправьте другу`, 'success');
       } catch (err) {
-        console.error('Create invite error:', err);
-        setCallStatus('Ошибка создания кода', 'error');
+        console.error(err);
+        setCallStatus('Не удалось создать код', 'error');
       }
     }
 
     async function connectToFriend() {
       const code = inviteIn.value.trim();
-      if (!code) {
-        setCallStatus('Введите код друга', 'error');
-        return;
-      }
-      
+      if (!code) { setCallStatus('Введите код друга', 'error'); return; }
       const remoteDesc = parseShortCode(code);
       if (!remoteDesc) return;
-      
       try {
         setCallStatus('Подключаемся...', 'info');
         const stream = await ensureCameraStream(true);
-        if (!stream) {
-          setCallStatus('Нужна камера для звонка', 'error');
-          return;
-        }
-        
+        if (!stream) return;
         const peer = createPeerConnection();
-        
-        stream.getTracks().forEach((t) => {
-          console.log('Adding track:', t.kind);
-          peer.addTrack(t, stream);
-        });
-        
+        stream.getTracks().forEach((t) => peer.addTrack(t, stream));
         if (remoteDesc.type === 'offer') {
-          // Мы получили offer - отвечаем answer
-          console.log('Получен offer, создаем answer...');
-          isInitiator = false;
-          
           await peer.setRemoteDescription(remoteDesc);
           const answer = await peer.createAnswer();
           await peer.setLocalDescription(answer);
           await waitForIceComplete(peer);
-          
-          // Выводим код ответа
           const answerCode = buildShortCode(peer.localDescription);
           inviteOut.value = answerCode;
-          setCallStatus('Отправьте код ответа инициатору', 'info');
-          addMessage('Вы', 'Отправьте этот код ответа инициатору');
+          try { await navigator.clipboard.writeText(answerCode); } catch (e) {}
+          setCallStatus(`Ответ готов (${answerCode.length} симв.) — отправьте инициатору`, 'success');
         } else {
-          // Мы инициатор, получили answer
-          console.log('Получен answer, подключаемся...');
-          isInitiator = true;
-          
           await peer.setRemoteDescription(remoteDesc);
-          setCallStatus('Подключение в процессе...', 'info');
-          addMessage('Вы', 'Ожидаем подключения друга...');
+          setCallStatus('Подключено!', 'success');
         }
       } catch (err) {
-        console.error('Connect error:', err);
-        setCallStatus(`Ошибка: ${err.message}`, 'error');
+        console.error(err);
+        setCallStatus('Ошибка подключения', 'error');
       }
     }
 
     async function copyToClipboard(el) {
       if (!el.value) return;
-      try {
-        await navigator.clipboard.writeText(el.value);
-        setCallStatus('Скопировано', 'success');
-      } catch (err) {
-        console.error('Copy error:', err);
-        setCallStatus('Не удалось скопировать', 'error');
-      }
+      try { await navigator.clipboard.writeText(el.value); setCallStatus('Скопировано', 'success'); }
+      catch { setCallStatus('Не удалось скопировать', 'error'); }
     }
 
     createOfferBtn.addEventListener('click', createInvite);
     connectBtn.addEventListener('click', connectToFriend);
     copyInvite.addEventListener('click', () => copyToClipboard(inviteOut));
 
-    // Автостарт камеры
     startCamera();
   </script>
 </body>
