@@ -3,14 +3,75 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Мой стрим & Чат</title>
+  <title>Видеозвонок</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
   <style>
     :root { color-scheme: dark; }
     .glass { backdrop-filter: blur(12px); background: rgba(15,23,42,0.6); }
-    .scrollbar::-webkit-scrollbar { width: 8px; }
+    .scrollbar::-webkit-scrollbar { width: 6px; }
     .scrollbar::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.6); border-radius: 12px; }
+    .pip-video {
+      position: absolute;
+      bottom: 1rem;
+      right: 1rem;
+      width: 120px;
+      height: 90px;
+      border-radius: 12px;
+      border: 2px solid rgba(255,255,255,0.2);
+      object-fit: cover;
+      z-index: 10;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .pip-video:hover {
+      transform: scale(1.05);
+      border-color: rgba(99, 102, 241, 0.6);
+    }
+    @media (min-width: 768px) {
+      .pip-video {
+        width: 180px;
+        height: 135px;
+      }
+    }
+    .main-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .video-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: #0f172a;
+      border-radius: 1rem;
+      overflow: hidden;
+    }
+    .fullscreen-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      z-index: 20;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .fullscreen-btn:hover {
+      background: rgba(99, 102, 241, 0.5);
+    }
+    .waiting-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, 0.9);
+      z-index: 5;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100">
@@ -20,331 +81,145 @@
     <div class="absolute w-[700px] h-[700px] -bottom-32 -right-32 rounded-full bg-fuchsia-500/20 blur-[150px]"></div>
   </div>
 
-  <header class="flex items-center justify-between px-6 py-4 border-b border-white/10 glass sticky top-0 z-20">
+  <header class="flex items-center justify-between px-4 py-3 border-b border-white/10 glass sticky top-0 z-20">
     <div class="flex items-center gap-3">
-      <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center font-bold text-xl">
-        ▶
+      <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center font-bold text-lg">
+        📹
       </div>
       <div>
-        <p class="text-sm uppercase tracking-[0.25em] text-slate-300">Live stream</p>
-        <h1 class="text-2xl font-semibold">Tech & Chill</h1>
+        <h1 class="text-lg md:text-xl font-semibold">Видеозвонок</h1>
       </div>
     </div>
-    <div class="flex items-center gap-3 text-sm">
-      <div class="px-3 py-1 rounded-full bg-white/10 border border-white/10">
-        Зрителей: <span id="viewerCount">3 482</span>
-      </div>
-      <div class="px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-100">LIVE</div>
+    <div class="flex items-center gap-2 text-sm">
+      <span id="callStatus" class="px-3 py-1 rounded-full bg-white/10 border border-white/10 text-slate-200 text-xs">Ожидание</span>
     </div>
   </header>
 
-  <main class="grid grid-cols-1 xl:grid-cols-3 gap-6 p-6 max-w-6xl mx-auto">
-    <section class="xl:col-span-2 glass border border-white/10 rounded-2xl overflow-hidden shadow-2xl shadow-indigo-900/30">
-      <div class="relative aspect-video bg-slate-900 flex items-center justify-center">
-        <video id="stream" class="w-full h-full object-cover" autoplay muted playsinline></video>
-        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 to-transparent pointer-events-none"></div>
-        <div class="absolute bottom-4 left-4 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-sm" id="liveLabel">Подключение...</div>
-        <div class="absolute bottom-4 right-4 px-3 py-2 rounded-xl bg-black/40 border border-white/10 text-xs text-slate-200">Разрешите доступ к камере — вы увидите себя</div>
-      </div>
-      <div class="p-4 border-t border-white/5 flex items-center justify-between bg-slate-900/60 flex-wrap gap-3">
-        <div class="flex items-center gap-2 text-sm text-slate-300">
-          <span class="h-2 w-2 rounded-full bg-green-400 animate-pulse"></span>
-          <span id="statusText">Готовим камеру...</span>
+  <main class="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 max-w-6xl mx-auto">
+    
+    <!-- Video Section -->
+    <section class="lg:col-span-2 space-y-4">
+      <div class="video-container glass border border-white/10 shadow-2xl shadow-indigo-900/30">
+        <video id="remoteVideo" class="main-video" autoplay playsinline></video>
+        <video id="localVideo" class="pip-video" autoplay muted playsinline></video>
+        
+        <div id="waitingOverlay" class="waiting-overlay">
+          <div class="text-4xl mb-4">📞</div>
+          <p class="text-slate-300 text-center px-4">Ожидание подключения друга...</p>
+          <p class="text-slate-500 text-sm mt-2">Отправьте код приглашения</p>
         </div>
-        <div class="flex items-center gap-2 text-sm">
-          <button id="startCam" class="px-3 py-1 rounded-lg bg-indigo-600 border border-indigo-500 hover:bg-indigo-500 transition shadow-lg shadow-indigo-900/40">
-            📷 Включить камеру
+        
+        <button id="fullscreenMain" class="fullscreen-btn text-white text-sm">⛶</button>
+        
+        <div class="absolute bottom-3 left-3 flex gap-2 z-20">
+          <button id="toggleMic" class="px-3 py-1.5 rounded-lg bg-black/50 border border-white/20 text-sm hover:bg-black/70 transition">
+            🎤
           </button>
-          <button id="muteBtn" class="px-3 py-1 rounded-lg bg-white/10 border border-white/10 hover:bg-white/15 transition">
-            🔈 Звук
+          <button id="toggleCam" class="px-3 py-1.5 rounded-lg bg-black/50 border border-white/20 text-sm hover:bg-black/70 transition">
+            📷
           </button>
-          <button id="pipBtn" class="px-3 py-1 rounded-lg bg-white/10 border border-white/10 hover:bg-white/15 transition">
-            🖼️ PiP
+          <button id="shareScreen" class="px-3 py-1.5 rounded-lg bg-black/50 border border-white/20 text-sm hover:bg-black/70 transition">
+            🖥️ Экран
           </button>
-          <button id="fullBtn" class="px-3 py-1 rounded-lg bg-white/10 border border-white/10 hover:bg-white/15 transition">
-            ⛶ Полный экран
-          </button>
+        </div>
+      </div>
+      
+      <!-- Connection Panel -->
+      <div class="glass border border-white/10 rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <h3 class="font-semibold text-sm">Подключение</h3>
+          <div class="flex gap-2">
+            <button id="createOfferBtn" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm transition">Создать код</button>
+            <button id="connectBtn" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm transition">Подключиться</button>
+            <button id="resetCall" class="px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-sm transition">Завершить</button>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-xs text-slate-400">Ваш код</label>
+            <div class="flex gap-2">
+              <textarea id="inviteOut" rows="2" class="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-xs font-mono resize-none" placeholder="Нажмите 'Создать код'"></textarea>
+              <button id="copyInvite" class="px-2 py-1 rounded-lg bg-white/10 border border-white/10 text-xs hover:bg-white/20">📋</button>
+            </div>
+          </div>
+          
+          <div class="space-y-1">
+            <label class="text-xs text-slate-400">Код друга</label>
+            <textarea id="inviteIn" rows="2" class="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-xs font-mono resize-none" placeholder="Вставьте код друга"></textarea>
+          </div>
         </div>
       </div>
     </section>
 
-    <aside class="glass border border-white/10 rounded-2xl shadow-2xl shadow-indigo-900/30 flex flex-col h-[70vh] xl:h-[82vh]">
+    <!-- Chat Section -->
+    <aside class="glass border border-white/10 rounded-xl shadow-2xl shadow-indigo-900/30 flex flex-col h-[50vh] lg:h-[75vh]">
       <div class="flex items-center justify-between px-4 py-3 border-b border-white/5">
-        <div>
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Чат</p>
-          <h2 class="text-xl font-semibold">Прямой эфир</h2>
-        </div>
-        <div class="flex items-center gap-2">
-          <select id="userSelect" class="bg-white/10 border border-white/10 rounded-lg px-2 py-1 text-sm focus:outline-none">
-            <option>Вы</option>
-            <option>Друг</option>
-          </select>
-          <button id="clearBtn" class="text-xs px-2 py-1 rounded bg-white/10 border border-white/10 hover:bg-white/15">Очистить</button>
-        </div>
+        <h2 class="font-semibold">Чат</h2>
+        <button id="clearBtn" class="text-xs px-2 py-1 rounded bg-white/10 border border-white/10 hover:bg-white/15">Очистить</button>
       </div>
 
-      <div id="chat" class="flex-1 overflow-y-auto p-4 space-y-3 scrollbar">
-        <!-- Messages will appear here -->
+      <div id="chat" class="flex-1 overflow-y-auto p-3 space-y-2 scrollbar">
+        <!-- Messages -->
       </div>
 
-      <div class="p-4 border-t border-white/5 space-y-2">
+      <div class="p-3 border-t border-white/5">
         <div class="flex gap-2">
           <input
             id="messageInput"
             type="text"
-            placeholder="Напишите сообщение..."
-            class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 focus:outline-none focus:border-indigo-400/60"
+            placeholder="Сообщение..."
+            class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 focus:outline-none focus:border-indigo-400/60 text-sm"
           />
-          <button id="sendBtn" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition shadow-lg shadow-indigo-900/40">
-            Отправить
+          <button id="sendBtn" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition text-sm">
+            ➤
           </button>
         </div>
-        <label class="flex items-center gap-2 text-sm text-slate-400">
-          <input type="checkbox" id="autoScroll" checked class="accent-indigo-500" /> Автопрокрутка
-        </label>
       </div>
     </aside>
-
-    <section class="glass border border-white/10 rounded-2xl shadow-2xl shadow-indigo-900/30 xl:col-span-3">
-      <div class="flex items-center justify-between gap-4 px-5 py-4 border-b border-white/5 flex-wrap">
-        <div>
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Созвон с другом</p>
-          <h2 class="text-xl font-semibold">P2P WebRTC</h2>
-        </div>
-        <div class="flex items-center gap-2 text-xs">
-          <span id="callStatus" class="px-3 py-1 rounded-full bg-white/10 border border-white/10 text-slate-200">Ожидает действий</span>
-          <button id="resetCall" class="px-3 py-1 rounded-lg bg-white/10 border border-white/10 hover:bg-white/15">Сбросить звонок</button>
-        </div>
-      </div>
-      <div class="p-5 space-y-5">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div class="relative overflow-hidden rounded-xl border border-white/10 bg-slate-900/60 aspect-video flex items-center justify-center">
-            <video id="localVideo" class="w-full h-full object-cover" autoplay muted playsinline></video>
-            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 to-transparent pointer-events-none"></div>
-            <div class="absolute top-3 left-3 px-3 py-1 rounded-full bg-black/50 border border-white/10 text-xs">Вы</div>
-          </div>
-          <div class="relative overflow-hidden rounded-xl border border-white/10 bg-slate-900/60 aspect-video flex items-center justify-center">
-            <video id="remoteVideo" class="w-full h-full object-cover" autoplay playsinline></video>
-            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 to-transparent pointer-events-none"></div>
-            <div class="absolute top-3 left-3 px-3 py-1 rounded-full bg-black/50 border border-white/10 text-xs">Друг</div>
-          </div>
-        </div>
-        
-        <div class="p-4 rounded-xl border border-white/10 bg-white/5 space-y-4">
-          <div class="flex items-center justify-between gap-2">
-            <h3 class="font-semibold">Позвонить другу</h3>
-            <div class="flex gap-2">
-              <button id="createOfferBtn" class="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm">Создать код</button>
-              <button id="connectBtn" class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm">Подключиться</button>
-            </div>
-          </div>
-          
-          <div class="grid md:grid-cols-2 gap-4">
-            <div class="space-y-2">
-              <label class="text-xs text-slate-400">Ваш код (отправьте другу)</label>
-              <div class="flex gap-2">
-                <textarea id="inviteOut" rows="2" class="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-xs font-mono" placeholder="Нажмите Создать код"></textarea>
-                <button id="copyInvite" class="px-3 py-2 rounded-lg bg-white/10 border border-white/10 text-xs whitespace-nowrap">Копия</button>
-              </div>
-            </div>
-            
-            <div class="space-y-2">
-              <label class="text-xs text-slate-400">Код друга</label>
-              <div class="flex gap-2">
-                <textarea id="inviteIn" rows="2" class="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-xs font-mono" placeholder="Вставьте код друга"></textarea>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
   </main>
 
   <script>
+    // Elements
     const chat = document.getElementById('chat');
     const messageInput = document.getElementById('messageInput');
     const sendBtn = document.getElementById('sendBtn');
     const clearBtn = document.getElementById('clearBtn');
-    const autoScroll = document.getElementById('autoScroll');
-    const userSelect = document.getElementById('userSelect');
-    const viewerCount = document.getElementById('viewerCount');
-    const streamEl = document.getElementById('stream');
-    const localVideo = document.getElementById('localVideo');
-    const muteBtn = document.getElementById('muteBtn');
-    const pipBtn = document.getElementById('pipBtn');
-    const fullBtn = document.getElementById('fullBtn');
-    const startCam = document.getElementById('startCam');
-    const statusText = document.getElementById('statusText');
-    const liveLabel = document.getElementById('liveLabel');
-
-    const remoteVideo = document.getElementById('remoteVideo');
     const callStatus = document.getElementById('callStatus');
+    
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    const waitingOverlay = document.getElementById('waitingOverlay');
+    
     const createOfferBtn = document.getElementById('createOfferBtn');
     const connectBtn = document.getElementById('connectBtn');
     const resetCall = document.getElementById('resetCall');
     const inviteOut = document.getElementById('inviteOut');
     const inviteIn = document.getElementById('inviteIn');
     const copyInvite = document.getElementById('copyInvite');
+    
+    const toggleMic = document.getElementById('toggleMic');
+    const toggleCam = document.getElementById('toggleCam');
+    const shareScreen = document.getElementById('shareScreen');
+    const fullscreenMain = document.getElementById('fullscreenMain');
 
-    const demoFallback = 'https://cdn.coverr.co/videos/coverr-tech-meeting-1607/1080p.mp4';
-    let cameraStream = null;
-
-    const badges = {
-      'Вы': 'Ведущий',
-      'Друг': 'Участник'
-    };
-
-    const colors = {
-      'Вы': 'from-indigo-500 to-fuchsia-500',
-      'Друг': 'from-emerald-500 to-cyan-500'
-    };
-
-    const sampleMessages = [
-      { user: 'Вы', text: 'Привет! Готов начать созвон 🚀' },
-      { user: 'Друг', text: 'Привет! Я тут 👋' }
-    ];
-
-    function addMessage(user, text) {
-      const wrap = document.createElement('div');
-      wrap.className = 'p-3 rounded-xl bg-white/5 border border-white/5 shadow-sm shadow-black/20';
-
-      const head = document.createElement('div');
-      head.className = 'flex items-center gap-2 mb-1';
-
-      const avatar = document.createElement('div');
-      avatar.className = `h-8 w-8 rounded-full bg-gradient-to-br ${colors[user] || 'from-slate-500 to-slate-700'} flex items-center justify-center text-xs font-semibold uppercase`;
-      avatar.textContent = user.slice(0, 2);
-
-      const name = document.createElement('div');
-      name.className = 'flex items-center gap-2';
-      const userEl = document.createElement('span');
-      userEl.className = 'font-semibold';
-      userEl.textContent = user;
-      const badge = document.createElement('span');
-      badge.className = 'text-[11px] px-2 py-[2px] rounded-full bg-white/10 border border-white/10 text-slate-200';
-      badge.textContent = badges[user] || 'Зритель';
-      name.append(userEl, badge);
-
-      head.append(avatar, name);
-
-      const body = document.createElement('p');
-      body.className = 'text-sm text-slate-200 leading-relaxed';
-      body.textContent = text;
-
-      wrap.append(head, body);
-      chat.appendChild(wrap);
-      if (autoScroll.checked) {
-        chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' });
-      }
-    }
-
-    function sendMessage() {
-      const text = messageInput.value.trim();
-      const user = userSelect.value;
-      if (!text) return;
-      addMessage(user, text);
-      messageInput.value = '';
-      messageInput.focus();
-    }
-
-    sendBtn.addEventListener('click', sendMessage);
-    messageInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') sendMessage();
-    });
-    clearBtn.addEventListener('click', () => {
-      chat.innerHTML = '';
-    });
-
-    muteBtn.addEventListener('click', () => {
-      streamEl.muted = !streamEl.muted;
-      muteBtn.textContent = streamEl.muted ? '🔇 Без звука' : '🔈 Звук';
-    });
-
-    pipBtn.addEventListener('click', async () => {
-      try {
-        if (document.pictureInPictureElement) {
-          await document.exitPictureInPicture();
-        } else {
-          if (!streamEl.disablePictureInPicture) {
-            await streamEl.requestPictureInPicture();
-          }
-        }
-      } catch (err) {
-        alert('PiP недоступен в этом браузере');
-      }
-    });
-
-    fullBtn.addEventListener('click', () => {
-      if (!document.fullscreenElement) {
-        streamEl.requestFullscreen?.();
-      } else {
-        document.exitFullscreen?.();
-      }
-    });
-
-    function stopCameraTracks() {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach((t) => t.stop());
-        cameraStream = null;
-      }
-    }
-
-    async function startCamera() {
-      statusText.textContent = 'Запрашиваем камеру...';
-      liveLabel.textContent = 'Подключение...';
-      startCam.disabled = true;
-      startCam.classList.add('opacity-70');
-      stopCameraTracks();
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: true
-        });
-        cameraStream = stream;
-        streamEl.srcObject = stream;
-        streamEl.muted = true;
-        localVideo.srcObject = stream;
-        localVideo.muted = true;
-        await streamEl.play();
-        statusText.textContent = 'Камера активна — вы в кадре';
-        liveLabel.textContent = 'Вы в эфире';
-        startCam.textContent = '🔄 Перезапустить камеру';
-      } catch (err) {
-        console.warn('Камера недоступна, включаем демо', err);
-        statusText.textContent = 'Камера недоступна — показ демо';
-        liveLabel.textContent = 'Демо стрим';
-        streamEl.srcObject = null;
-        streamEl.src = demoFallback;
-        streamEl.muted = true;
-        streamEl.loop = true;
-        await streamEl.play().catch(() => {});
-        startCam.textContent = 'Повторить запрос камеры';
-        cameraStream = null;
-      } finally {
-        startCam.disabled = false;
-        startCam.classList.remove('opacity-70');
-      }
-      return cameraStream;
-    }
-
-    startCam.addEventListener('click', startCamera);
-
-    // Fake viewer counter pulse
-    setInterval(() => {
-      const base = 3482;
-      const jitter = Math.floor(Math.random() * 40) - 20;
-      viewerCount.textContent = (base + jitter).toLocaleString('ru-RU');
-    }, 2000);
-
-    // Seed messages
-    sampleMessages.forEach((m) => addMessage(m.user, m.text));
-
-    // --- WebRTC Call Logic ---
+    // State
     let pc = null;
-    const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+    let localStream = null;
+    let screenStream = null;
+    let micEnabled = true;
+    let camEnabled = true;
+    let isConnected = false;
 
-    function setCallStatus(text, tone = 'neutral') {
+    const rtcConfig = { 
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' }, 
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ] 
+    };
+
+    // Status
+    function setStatus(text, tone = 'neutral') {
       const tones = {
         neutral: 'bg-white/10 border-white/10 text-slate-200',
         info: 'bg-indigo-500/20 border-indigo-400/50 text-indigo-100',
@@ -355,48 +230,155 @@
       callStatus.className = `px-3 py-1 rounded-full text-xs ${tones[tone] || tones.neutral}`;
     }
 
-    function resetPeer() {
-      if (pc) {
-        try {
-          pc.close();
-        } catch (e) {}
-      }
-      pc = null;
-      remoteVideo.srcObject = null;
-      setCallStatus('Ожидает действий');
+    // Chat
+    function addMessage(user, text) {
+      const wrap = document.createElement('div');
+      wrap.className = 'p-2 rounded-lg bg-white/5 border border-white/5';
+      
+      const isMe = user === 'Вы';
+      const color = isMe ? 'from-indigo-500 to-fuchsia-500' : 'from-emerald-500 to-cyan-500';
+      
+      wrap.innerHTML = `
+        <div class="flex items-center gap-2 mb-1">
+          <div class="h-6 w-6 rounded-full bg-gradient-to-br ${color} flex items-center justify-center text-[10px] font-semibold">${user.slice(0,1)}</div>
+          <span class="font-medium text-sm">${user}</span>
+        </div>
+        <p class="text-sm text-slate-200 pl-8">${text}</p>
+      `;
+      chat.appendChild(wrap);
+      chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' });
     }
 
-    resetCall.addEventListener('click', resetPeer);
+    function sendMessage() {
+      const text = messageInput.value.trim();
+      if (!text) return;
+      addMessage('Вы', text);
+      messageInput.value = '';
+      
+      // Send via data channel if connected
+      if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(JSON.stringify({ type: 'chat', text }));
+      }
+    }
 
-    async function ensureCameraStream() {
-      if (cameraStream) return cameraStream;
+    sendBtn.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+    clearBtn.addEventListener('click', () => chat.innerHTML = '');
+
+    // Camera
+    async function startCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        localStream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: true
         });
-        cameraStream = stream;
-        localVideo.srcObject = stream;
-        localVideo.muted = true;
-        return stream;
+        localVideo.srcObject = localStream;
+        await localVideo.play();
+        console.log('Camera started');
+        return localStream;
       } catch (err) {
-        console.warn('Камера недоступна для звонка:', err);
-        setCallStatus('Камера недоступна', 'error');
-        addMessage('Вы', 'Ошибка: камера недоступна');
+        console.error('Camera error:', err);
+        addMessage('Система', 'Не удалось получить доступ к камере');
         return null;
       }
     }
 
+    // Toggle controls
+    toggleMic.addEventListener('click', () => {
+      if (!localStream) return;
+      micEnabled = !micEnabled;
+      localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
+      toggleMic.textContent = micEnabled ? '🎤' : '🔇';
+      toggleMic.classList.toggle('bg-rose-600/50', !micEnabled);
+    });
+
+    toggleCam.addEventListener('click', () => {
+      if (!localStream) return;
+      camEnabled = !camEnabled;
+      localStream.getVideoTracks().forEach(t => t.enabled = camEnabled);
+      toggleCam.textContent = camEnabled ? '📷' : '📷❌';
+      toggleCam.classList.toggle('bg-rose-600/50', !camEnabled);
+    });
+
+    // Screen sharing
+    shareScreen.addEventListener('click', async () => {
+      if (screenStream) {
+        // Stop screen share
+        screenStream.getTracks().forEach(t => t.stop());
+        screenStream = null;
+        
+        // Replace with camera
+        if (localStream && pc) {
+          const videoTrack = localStream.getVideoTracks()[0];
+          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+          if (sender && videoTrack) {
+            await sender.replaceTrack(videoTrack);
+          }
+        }
+        localVideo.srcObject = localStream;
+        shareScreen.textContent = '🖥️ Экран';
+        shareScreen.classList.remove('bg-indigo-600/50');
+        addMessage('Вы', 'Демонстрация экрана остановлена');
+      } else {
+        try {
+          screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: 'always' },
+            audio: true
+          });
+          
+          // Replace video track in peer connection
+          if (pc) {
+            const videoTrack = screenStream.getVideoTracks()[0];
+            const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+            if (sender && videoTrack) {
+              await sender.replaceTrack(videoTrack);
+            }
+          }
+          
+          localVideo.srcObject = screenStream;
+          shareScreen.textContent = '🖥️ Стоп';
+          shareScreen.classList.add('bg-indigo-600/50');
+          addMessage('Вы', 'Демонстрация экрана началась');
+          
+          // Handle stop from browser UI
+          screenStream.getVideoTracks()[0].onended = () => {
+            shareScreen.click();
+          };
+        } catch (err) {
+          console.error('Screen share error:', err);
+          addMessage('Система', 'Не удалось начать демонстрацию экрана');
+        }
+      }
+    });
+
+    // Fullscreen
+    fullscreenMain.addEventListener('click', () => {
+      const container = remoteVideo.parentElement;
+      if (!document.fullscreenElement) {
+        container.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    });
+
+    // Swap videos on click
+    localVideo.addEventListener('click', () => {
+      // Swap main and pip
+      const mainSrc = remoteVideo.srcObject;
+      const pipSrc = localVideo.srcObject;
+      remoteVideo.srcObject = pipSrc;
+      localVideo.srcObject = mainSrc;
+    });
+
+    // WebRTC
+    let dataChannel = null;
+
     function buildShortCode(desc) {
-      const sdp = desc.sdp;
-      const data = {
-        t: desc.type === 'offer' ? 'o' : 'a',
-        s: sdp
-      };
-      
+      const data = { t: desc.type === 'offer' ? 'o' : 'a', s: desc.sdp };
       const json = JSON.stringify(data);
       const compressed = pako.deflate(json, { level: 9 });
-      
       let binary = '';
       for (let i = 0; i < compressed.byteLength; i++) {
         binary += String.fromCharCode(compressed[i]);
@@ -413,12 +395,13 @@
         }
         const decompressed = pako.inflate(bytes, { to: 'string' });
         const data = JSON.parse(decompressed);
-        const type = data.t === 'o' ? 'offer' : 'answer';
-        return new RTCSessionDescription({ type, sdp: data.s });
+        return new RTCSessionDescription({ 
+          type: data.t === 'o' ? 'offer' : 'answer', 
+          sdp: data.s 
+        });
       } catch (err) {
         console.error('Parse error:', err);
-        setCallStatus('Ошибка кода приглашения', 'error');
-        addMessage('Вы', 'Ошибка: неверный код');
+        setStatus('Неверный код', 'error');
         return null;
       }
     }
@@ -426,19 +409,24 @@
     function createPeerConnection() {
       pc = new RTCPeerConnection(rtcConfig);
       
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          console.log('ICE candidate found');
-        } else {
-          console.log('ICE gathering complete');
-        }
+      // Data channel for chat
+      dataChannel = pc.createDataChannel('chat');
+      setupDataChannel(dataChannel);
+      
+      pc.ondatachannel = (event) => {
+        dataChannel = event.channel;
+        setupDataChannel(dataChannel);
       };
       
       pc.ontrack = (event) => {
-        console.log('Получен remote track:', event.track.kind, 'streams:', event.streams.length);
-        if (event.streams && event.streams.length > 0) {
+        console.log('Remote track received:', event.track.kind);
+        if (event.streams[0]) {
           remoteVideo.srcObject = event.streams[0];
           remoteVideo.play().catch(e => console.error('Play error:', e));
+          waitingOverlay.style.display = 'none';
+          isConnected = true;
+          setStatus('Подключено', 'success');
+          addMessage('Система', 'Друг подключился!');
         }
       };
       
@@ -446,143 +434,155 @@
         console.log('Connection state:', pc?.connectionState);
         if (!pc) return;
         if (pc.connectionState === 'connected') {
-          setCallStatus('✅ Соединение установлено', 'success');
-          addMessage('Вы', 'Соединение с другом установлено! 🎉');
+          setStatus('Подключено', 'success');
+          waitingOverlay.style.display = 'none';
+          isConnected = true;
         } else if (pc.connectionState === 'connecting') {
-          setCallStatus('⏳ Подключаемся...', 'info');
+          setStatus('Подключение...', 'info');
         } else if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
-          setCallStatus('❌ Соединение разорвано', 'error');
-          addMessage('Вы', 'Соединение разорвано');
+          setStatus('Отключено', 'error');
+          waitingOverlay.style.display = 'flex';
+          isConnected = false;
         }
-      };
-      
-      pc.onicegatheringstatechange = () => {
-        console.log('ICE gathering state:', pc?.iceGatheringState);
       };
       
       return pc;
     }
 
+    function setupDataChannel(channel) {
+      channel.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'chat') {
+            addMessage('Друг', data.text);
+          }
+        } catch (e) {}
+      };
+      channel.onopen = () => console.log('Data channel open');
+      channel.onclose = () => console.log('Data channel closed');
+    }
+
+    function resetPeer() {
+      if (pc) {
+        try { pc.close(); } catch (e) {}
+      }
+      pc = null;
+      dataChannel = null;
+      remoteVideo.srcObject = null;
+      waitingOverlay.style.display = 'flex';
+      isConnected = false;
+      setStatus('Ожидание');
+      inviteOut.value = '';
+      inviteIn.value = '';
+    }
+
+    resetCall.addEventListener('click', resetPeer);
+
     async function createInvite() {
       try {
-        setCallStatus('Создаем код...', 'info');
+        setStatus('Создание...', 'info');
         resetPeer();
         
-        const stream = await ensureCameraStream();
-        if (!stream) return;
+        if (!localStream) {
+          await startCamera();
+        }
+        if (!localStream) return;
         
         const peer = createPeerConnection();
         
-        stream.getTracks().forEach((t) => {
-          console.log('Adding track to offer:', t.kind);
-          peer.addTrack(t, stream);
+        localStream.getTracks().forEach(t => {
+          console.log('Adding track:', t.kind);
+          peer.addTrack(t, localStream);
         });
         
         const offer = await peer.createOffer({
           offerToReceiveAudio: true,
           offerToReceiveVideo: true
         });
-        console.log('Offer создан:', offer.type);
-        
         await peer.setLocalDescription(offer);
-        console.log('Local description установлен');
         
+        // Wait for ICE
         await new Promise(r => setTimeout(r, 2000));
         
         const code = buildShortCode(peer.localDescription);
         inviteOut.value = code;
-        setCallStatus('✅ Код готов!', 'success');
-        addMessage('Вы', 'Приглашение создано, отправьте код другу');
-        console.log('Offer код длина:', code.length);
+        setStatus('Код готов', 'success');
+        addMessage('Система', 'Отправьте код другу');
+        console.log('Code length:', code.length);
       } catch (err) {
         console.error('Create invite error:', err);
-        setCallStatus(`Ошибка: ${err.message}`, 'error');
-        addMessage('Вы', `Ошибка: ${err.message}`);
+        setStatus('Ошибка', 'error');
+        addMessage('Система', 'Ошибка: ' + err.message);
       }
     }
 
-    async function connectToFriend() {
+    async function connect() {
       const code = inviteIn.value.trim();
       if (!code) {
-        setCallStatus('Введите код', 'error');
-        addMessage('Вы', 'Ошибка: вставьте код друга');
+        setStatus('Введите код', 'error');
         return;
       }
       
-      console.log('Подключаемся, код длина:', code.length);
       const remoteDesc = parseShortCode(code);
       if (!remoteDesc) return;
       
       try {
-        setCallStatus('⏳ Подключаемся...', 'info');
+        setStatus('Подключение...', 'info');
         
-        const stream = await ensureCameraStream();
-        if (!stream) return;
+        if (!localStream) {
+          await startCamera();
+        }
+        if (!localStream) return;
         
         if (!pc) {
           const peer = createPeerConnection();
-          
-          stream.getTracks().forEach((t) => {
-            console.log('Adding track:', t.kind);
-            peer.addTrack(t, stream);
-          });
-        } else {
-          stream.getTracks().forEach((t) => {
-            if (!pc.getSenders().find(s => s.track?.kind === t.kind)) {
-              pc.addTrack(t, stream);
-            }
+          localStream.getTracks().forEach(t => {
+            peer.addTrack(t, localStream);
           });
         }
         
-        console.log('Remote description type:', remoteDesc.type);
         await pc.setRemoteDescription(remoteDesc);
-        console.log('Remote description установлен');
+        console.log('Remote desc set:', remoteDesc.type);
         
         if (remoteDesc.type === 'offer') {
-          console.log('Получен offer, создаем answer...');
           const answer = await pc.createAnswer({
             offerToReceiveAudio: true,
             offerToReceiveVideo: true
           });
           await pc.setLocalDescription(answer);
-          console.log('Answer создан и установлен');
           
           await new Promise(r => setTimeout(r, 2000));
           
           const answerCode = buildShortCode(pc.localDescription);
           inviteOut.value = answerCode;
-          setCallStatus('Отправьте код ответа', 'info');
-          addMessage('Вы', 'Отправьте этот код друга обратно!');
-          console.log('Answer код длина:', answerCode.length);
+          setStatus('Отправьте код ответа', 'info');
+          addMessage('Система', 'Отправьте код ответа другу');
+          console.log('Answer code length:', answerCode.length);
         } else {
-          console.log('Получен answer, завершаем соединение');
-          setCallStatus('Ожидание...');
-          addMessage('Вы', 'Ожидаем подключения...');
-          
-          await new Promise(r => setTimeout(r, 3000));
+          setStatus('Ожидание...', 'info');
         }
       } catch (err) {
         console.error('Connect error:', err);
-        setCallStatus(`Ошибка: ${err.message}`, 'error');
-        addMessage('Вы', `Ошибка: ${err.message}`);
+        setStatus('Ошибка', 'error');
+        addMessage('Система', 'Ошибка: ' + err.message);
       }
     }
 
-    async function copyToClipboard(el) {
-      if (!el.value) return;
+    async function copyToClipboard() {
+      if (!inviteOut.value) return;
       try {
-        await navigator.clipboard.writeText(el.value);
-        setCallStatus('Скопировано', 'success');
+        await navigator.clipboard.writeText(inviteOut.value);
+        setStatus('Скопировано!', 'success');
       } catch (err) {
-        console.error('Copy error:', err);
-        setCallStatus('Ошибка копирования', 'error');
+        setStatus('Ошибка копирования', 'error');
       }
     }
 
     createOfferBtn.addEventListener('click', createInvite);
-    connectBtn.addEventListener('click', connectToFriend);
-    copyInvite.addEventListener('click', () => copyToClipboard(inviteOut));
+    connectBtn.addEventListener('click', connect);
+    copyInvite.addEventListener('click', copyToClipboard);
 
+    // Init
     startCamera();
   </script>
 </body>
