@@ -299,6 +299,53 @@
 
   <div id="tooltip" class="tooltip hidden md:block"></div>
 
+  <!-- Модальное окно для инструкции по микрофону -->
+  <div id="micInstructionModal" class="modal-backdrop">
+    <div class="bg-slate-900 rounded-xl md:rounded-2xl border border-white/10 shadow-2xl w-full max-w-md p-4 md:p-6 m-4">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">Как включить микрофон</h3>
+        <button id="closeMicInstruction" class="h-8 w-8 rounded-full bg-white/10 text-white flex items-center justify-center">✕</button>
+      </div>
+      
+      <div class="space-y-4 text-sm text-slate-300">
+        <p>Для работы микрофона необходимо разрешить доступ в настройках браузера.</p>
+        
+        <div class="space-y-2">
+          <h4 class="font-medium text-slate-100">Для iOS (Safari):</h4>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Нажмите <strong>«Настройки страницы»</strong> в верхнем левом углу</li>
+            <li>Выберите <strong>«Разрешить доступ к микрофону»</strong></li>
+            <li>Обновите страницу</li>
+          </ol>
+        </div>
+        
+        <div class="space-y-2">
+          <h4 class="font-medium text-slate-100">Для Android (Chrome):</h4>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Нажмите на значок замка 🔒 в адресной строке</li>
+            <li>Выберите <strong>«Разрешения сайта»</strong></li>
+            <li>Найдите <strong>«Микрофон»</strong> и выберите <strong>«Разрешить»</strong></li>
+            <li>Обновите страницу</li>
+          </ol>
+        </div>
+        
+        <div class="space-y-2">
+          <h4 class="font-medium text-slate-100">Альтернативный способ:</h4>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Зайдите в настройки вашего браузера</li>
+            <li>Найдите раздел <strong>«Настройки сайтов»</strong> или <strong>«Разрешения»</strong></li>
+            <li>Найдите этот сайт в списке и разрешите доступ к микрофону</li>
+            <li>Вернитесь на страницу и обновите её</li>
+          </ol>
+        </div>
+      </div>
+      
+      <div class="flex justify-end mt-6">
+        <button id="refreshPage" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium transition">Обновить страницу</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Elements
     const chat = document.getElementById('chat');
@@ -381,14 +428,29 @@
     };
 
     function createSilentAudioTrack() {
-      const ctx = new AudioContext();
-      const oscillator = ctx.createOscillator();
-      const dst = ctx.createMediaStreamDestination();
-      oscillator.connect(dst);
-      oscillator.start();
-      const track = dst.stream.getAudioTracks()[0];
-      track.enabled = false;
-      return track;
+      // Fallback for mobile browsers that may block audio context without user interaction
+      try {
+        const ctx = new AudioContext();
+        const oscillator = ctx.createOscillator();
+        const dst = ctx.createMediaStreamDestination();
+        oscillator.connect(dst);
+        oscillator.start();
+        const track = dst.stream.getAudioTracks()[0];
+        track.enabled = false;
+        return track;
+      } catch (err) {
+        console.warn('AudioContext failed, using dummy track:', err);
+        // Create a dummy track for mobile compatibility
+        const stream = new MediaStream();
+        const track = stream.addTrack(Object.assign(
+          new MediaStreamTrack(), {
+            kind: 'audio',
+            enabled: false,
+            stop: () => {}
+          }
+        ));
+        return track;
+      }
     }
     function createBlackVideoTrack() {
       const canvas = document.createElement('canvas');
@@ -896,7 +958,43 @@
 
     async function startCamera() {
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
+        // Mobile-optimized constraints
+        const constraints = {
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user', // Prefer front camera on mobile
+            frameRate: { ideal: 24, max: 30 }
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1, // Mono audio for better compatibility
+            sampleRate: { ideal: 44100, min: 16000 },
+            sampleSize: 16
+          }
+        };
+
+        // Try to get both video and audio
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia(constraints);
+          
+          // Check if we actually got audio tracks
+          const audioTracks = localStream.getAudioTracks();
+          if (audioTracks.length === 0) {
+            console.warn('No audio tracks received, adding fallback');
+            ensureFallbackTracks();
+            localStream.addTrack(fallbackAudioTrack);
+          }
+        } catch (err) {
+          console.warn('Full media access failed, trying video-only:', err);
+          // Fallback to video-only if audio fails
+          localStream = await navigator.mediaDevices.getUserMedia({ video: constraints.video });
+          ensureFallbackTracks();
+          localStream.addTrack(fallbackAudioTrack);
+        }
+
         localVideo.srcObject = localStream;
         localVideo.classList.remove('hidden');
         localVideoContainer.classList.add('hidden');
@@ -905,12 +1003,20 @@
         hasMediaDevices = true;
         updateMediaButtons();
         bindLocalTracks(localStream);
+        
+        // Show warning if using fallback audio
+        if (localStream.getAudioTracks().some(t => t === fallbackAudioTrack)) {
+          showNotification('⚠️ Микрофон недоступен, используется заглушка');
+        } else {
+          showNotification('✅ Камера и микрофон подключены');
+        }
+        
         return true;
       } catch (err) {
         console.error('Camera error:', err);
         hasMediaDevices = false;
         updateMediaButtons();
-        showNotification('⚠️ Медиаустройства недоступны');
+        showNotification('⚠️ Медиаустройства недоступны. Проверьте разрешения.');
         return false;
       }
     }
@@ -927,7 +1033,28 @@
       }
     }
 
-    toggleMic.addEventListener('click', () => { if (!localStream || !hasMediaDevices) return; micEnabled = !micEnabled; localStream.getAudioTracks().forEach(t => t.enabled = micEnabled); updateMediaButtons(); toggleMic.classList.toggle('bg-rose-600/50', !micEnabled); });
+    toggleMic.addEventListener('click', () => {
+      if (!hasMediaDevices) {
+        showMicInstruction();
+        return;
+      }
+      if (!localStream) {
+        showNotification('⚠️ Видеопоток не инициализирован');
+        return;
+      }
+      
+      // Check if we're using fallback audio
+      const usingFallback = localStream.getAudioTracks().some(t => t === fallbackAudioTrack);
+      if (usingFallback) {
+        showMicInstruction();
+        return;
+      }
+      
+      micEnabled = !micEnabled;
+      localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
+      updateMediaButtons();
+      toggleMic.classList.toggle('bg-rose-600/50', !micEnabled);
+    });
     toggleCam.addEventListener('click', () => { if (!localStream || !hasMediaDevices) return; camEnabled = !camEnabled; localStream.getVideoTracks().forEach(t => t.enabled = camEnabled); updateMediaButtons(); toggleCam.classList.toggle('bg-rose-600/50', !camEnabled); });
 
     shareScreen.addEventListener('click', async () => {
@@ -1209,14 +1336,44 @@
       document.addEventListener('mouseout', () => { if (tipTimer) clearTimeout(tipTimer); tooltip.classList.remove('show'); });
     }
 
+    // Initialize modal elements
+    const micInstructionModal = document.getElementById('micInstructionModal');
+    const closeMicInstruction = document.getElementById('closeMicInstruction');
+    const refreshPage = document.getElementById('refreshPage');
+    
+    // Modal event handlers
+    closeMicInstruction.addEventListener('click', () => {
+      micInstructionModal.classList.remove('show');
+    });
+    
+    refreshPage.addEventListener('click', () => {
+      window.location.reload();
+    });
+    
+    micInstructionModal.addEventListener('click', (e) => {
+      if (e.target === micInstructionModal) {
+        micInstructionModal.classList.remove('show');
+      }
+    });
+    
+    // Function to show mic instruction
+    function showMicInstruction() {
+      micInstructionModal.classList.add('show');
+    }
+    
     // Initialize media on page load
     updateMediaButtons(); 
     setStatus('Ожидание');
     
     // Auto-start camera on load
     startCamera().then(success => {
-      if (success) {
-        showNotification('✅ Камера и микрофон готовы');
+      if (!success) {
+        showNotification('⚠️ Не удалось получить доступ к камере и микрофону');
+      } else {
+        // Check if using fallback audio (mic not working)
+        if (localStream && localStream.getAudioTracks().some(t => t === fallbackAudioTrack)) {
+          showNotification('⚠️ Микрофон недоступен. Нажмите на 🎤 для инструкций.'); 
+        }
       }
     });
   </script>
