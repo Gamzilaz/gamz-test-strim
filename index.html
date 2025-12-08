@@ -256,24 +256,35 @@
   </main>
 
   <!-- Рисовалка для картинок -->
-  <div id="drawModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-2 md:p-4">
-    <div class="bg-slate-900 rounded-xl md:rounded-2xl border border-white/10 shadow-2xl w-full max-w-3xl overflow-hidden">
-      <div class="flex items-center justify-between px-3 py-2 md:px-4 md:py-3 border-b border-white/10">
+  <div id="drawModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-50 p-2 md:p-6 overflow-y-auto">
+    <div class="bg-slate-900 rounded-xl md:rounded-2xl border border-white/10 shadow-2xl w-full max-w-4xl overflow-hidden my-auto">
+      <div class="flex items-center justify-between px-3 py-2 md:px-5 md:py-4 border-b border-white/10">
         <div>
-          <h3 class="font-semibold text-xs md:text-sm">Редактирование</h3>
+          <h3 class="font-semibold text-sm md:text-base">Редактирование изображения</h3>
+          <p class="text-[10px] md:text-xs text-slate-400 mt-0.5">Рисуйте поверх картинки</p>
         </div>
-        <div class="flex gap-1.5 md:gap-2 text-[10px] md:text-xs items-center">
-          <input type="color" id="brushColor" value="#f472b6" class="h-6 w-6 p-0 border-0 bg-transparent rounded" />
-          <input id="brushSize" type="range" min="2" max="18" value="6" class="w-16 md:w-24 accent-indigo-400" />
-          <button id="clearCanvas" class="px-1.5 py-0.5 md:px-2 md:py-1 rounded bg-white/10 border border-white/10 hover:bg-white/20">🔄</button>
-          <button id="closeDraw" class="px-1.5 py-0.5 md:px-2 md:py-1 rounded bg-white/10 border border-white/10 hover:bg-white/20">✕</button>
+        <div class="flex gap-2 md:gap-3 text-xs md:text-sm items-center flex-wrap">
+          <div class="flex items-center gap-1.5">
+            <span class="text-slate-400 hidden sm:inline">Цвет:</span>
+            <input type="color" id="brushColor" value="#f472b6" class="h-8 w-8 md:h-10 md:w-10 p-0 border-0 bg-transparent rounded cursor-pointer" />
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-slate-400 hidden sm:inline">Размер:</span>
+            <input id="brushSize" type="range" min="2" max="30" value="8" class="w-20 md:w-32 accent-indigo-400" />
+          </div>
+          <button id="clearCanvas" class="px-2 py-1 md:px-3 md:py-1.5 rounded-lg bg-white/10 border border-white/10 hover:bg-white/20 transition">🔄 Сброс</button>
+          <button id="closeDraw" class="px-2 py-1 md:px-3 md:py-1.5 rounded-lg bg-rose-500/20 border border-rose-400/30 hover:bg-rose-500/40 text-rose-200 transition">✕</button>
         </div>
       </div>
-      <div class="p-2 md:p-4 bg-slate-950">
-        <canvas id="drawCanvas" class="w-full rounded-lg border border-white/10 bg-black touch-none"></canvas>
+      <div class="p-3 md:p-6 bg-slate-950 flex justify-center">
+        <canvas id="drawCanvas" class="rounded-xl border-2 border-white/20 bg-slate-900 touch-none shadow-2xl" style="max-width: 100%; max-height: 70vh;"></canvas>
       </div>
-      <div class="flex justify-end px-3 py-2 md:px-4 md:py-3 border-t border-white/10">
-        <button id="sendDrawing" class="px-3 py-1.5 md:py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs md:text-sm">Отправить</button>
+      <div class="flex justify-between items-center px-3 py-3 md:px-5 md:py-4 border-t border-white/10 bg-slate-900/50">
+        <p class="text-[10px] md:text-xs text-slate-500">Поддержка PNG, JPG, GIF</p>
+        <div class="flex gap-2">
+          <button id="cancelDraw" class="px-3 py-1.5 md:px-4 md:py-2 rounded-lg bg-white/10 border border-white/10 hover:bg-white/20 text-xs md:text-sm transition">Отмена</button>
+          <button id="sendDrawing" class="px-4 py-1.5 md:px-6 md:py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs md:text-sm font-medium transition">📤 Отправить</button>
+        </div>
       </div>
     </div>
   </div>
@@ -675,22 +686,61 @@
     let imgForDraw = new Image();
 
     function resizeCanvasToImage(img) {
-      const container = drawCanvas.parentElement;
-      const maxW = Math.min(1024, container.clientWidth - 16);
-      const maxH = 500;
-      let { width, height } = img;
-      const scale = Math.min(1, maxW / width, maxH / height);
-      width = Math.floor(width * scale); height = Math.floor(height * scale);
-      drawCanvas.width = width; drawCanvas.height = height;
-      ctxDraw.clearRect(0,0,width,height);
-      ctxDraw.drawImage(img, 0, 0, width, height);
+      // Wait for modal to be visible to get correct dimensions
+      requestAnimationFrame(() => {
+        const container = drawCanvas.parentElement;
+        const containerWidth = container.clientWidth || window.innerWidth - 48;
+        const maxW = Math.min(1200, containerWidth - 48);
+        const maxH = Math.min(600, window.innerHeight * 0.6);
+        let { width, height } = img;
+        
+        // Ensure minimum size
+        if (width < 100) width = 100;
+        if (height < 100) height = 100;
+        
+        const scale = Math.min(1, maxW / width, maxH / height);
+        width = Math.floor(width * scale); 
+        height = Math.floor(height * scale);
+        
+        // Set minimum dimensions
+        width = Math.max(300, width);
+        height = Math.max(200, height);
+        
+        drawCanvas.width = width; 
+        drawCanvas.height = height;
+        ctxDraw.fillStyle = '#1e293b';
+        ctxDraw.fillRect(0, 0, width, height);
+        
+        // Center the image on canvas
+        const imgScale = Math.min(width / img.width, height / img.height);
+        const imgW = img.width * imgScale;
+        const imgH = img.height * imgScale;
+        const offsetX = (width - imgW) / 2;
+        const offsetY = (height - imgH) / 2;
+        
+        ctxDraw.drawImage(img, offsetX, offsetY, imgW, imgH);
+      });
     }
 
     function openDrawModal(file) {
+      drawModal.classList.remove('hidden'); 
+      drawModal.classList.add('flex');
+      
       const reader = new FileReader();
-      reader.onload = e => { imgForDraw.onload = () => { resizeCanvasToImage(imgForDraw); drawModal.classList.remove('hidden'); drawModal.classList.add('flex'); }; imgForDraw.src = e.target.result; };
+      reader.onload = e => { 
+        imgForDraw = new Image();
+        imgForDraw.onload = () => { 
+          resizeCanvasToImage(imgForDraw); 
+        }; 
+        imgForDraw.src = e.target.result; 
+      };
       reader.readAsDataURL(file);
       drawingImage = file;
+    }
+    
+    function closeDrawModal() {
+      drawModal.classList.add('hidden'); 
+      drawModal.classList.remove('flex');
     }
 
     function getDrawPos(e) {
@@ -713,8 +763,24 @@
     drawCanvas.addEventListener('touchmove', e => { e.preventDefault(); if (!drawing) return; const pos = getDrawPos(e); ctxDraw.lineTo(pos.x, pos.y); ctxDraw.stroke(); }, { passive: false });
     drawCanvas.addEventListener('touchend', () => drawing = false);
     
-    clearCanvasBtn.addEventListener('click', () => { ctxDraw.clearRect(0,0,drawCanvas.width,drawCanvas.height); ctxDraw.drawImage(imgForDraw,0,0,drawCanvas.width,drawCanvas.height); });
-    closeDraw.addEventListener('click', () => { drawModal.classList.add('hidden'); drawModal.classList.remove('flex'); });
+    clearCanvasBtn.addEventListener('click', () => { 
+      // Redraw the original image
+      ctxDraw.fillStyle = '#1e293b';
+      ctxDraw.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+      const imgScale = Math.min(drawCanvas.width / imgForDraw.width, drawCanvas.height / imgForDraw.height);
+      const imgW = imgForDraw.width * imgScale;
+      const imgH = imgForDraw.height * imgScale;
+      const offsetX = (drawCanvas.width - imgW) / 2;
+      const offsetY = (drawCanvas.height - imgH) / 2;
+      ctxDraw.drawImage(imgForDraw, offsetX, offsetY, imgW, imgH);
+    });
+    closeDraw.addEventListener('click', closeDrawModal);
+    
+    // Add cancelDraw button handler
+    const cancelDrawBtn = document.getElementById('cancelDraw');
+    if (cancelDrawBtn) {
+      cancelDrawBtn.addEventListener('click', closeDrawModal);
+    }
 
     sendDrawing.addEventListener('click', () => {
       drawCanvas.toBlob(blob => {
