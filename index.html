@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Видеозвонок — Стрим Платформа</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
@@ -12,33 +12,119 @@
     .glass { backdrop-filter: blur(14px); background: rgba(12, 17, 35, 0.7); }
     .scrollbar::-webkit-scrollbar { width: 6px; }
     .scrollbar::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.6); border-radius: 12px; }
-    .pip-video { position: absolute; bottom: 1rem; right: 1rem; width: 120px; height: 90px; border-radius: 14px; border: 2px solid rgba(255,255,255,0.25); object-fit: cover; z-index: 10; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.45); }
+    
+    .pip-video { 
+      position: absolute; 
+      bottom: 0.75rem; 
+      right: 0.75rem; 
+      width: 80px; 
+      height: 60px; 
+      border-radius: 10px; 
+      border: 2px solid rgba(255,255,255,0.25); 
+      object-fit: cover; 
+      z-index: 10; 
+      cursor: pointer; 
+      transition: all 0.3s ease; 
+      box-shadow: 0 10px 30px rgba(0,0,0,0.45); 
+    }
     .pip-video:hover { transform: scale(1.05); border-color: rgba(99, 102, 241, 0.6); }
-    @media (min-width: 768px) { .pip-video { width: 180px; height: 135px; } }
+    @media (min-width: 640px) { .pip-video { width: 120px; height: 90px; } }
+    @media (min-width: 768px) { .pip-video { width: 160px; height: 120px; bottom: 1rem; right: 1rem; } }
+    
     .main-video { width: 100%; height: 100%; object-fit: cover; background: #0f172a; }
-    .video-container { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 1.25rem; overflow: hidden; }
-    .fullscreen-btn { position: absolute; top: 0.6rem; right: 0.6rem; z-index: 30; background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; padding: 0.55rem; cursor: pointer; transition: all 0.2s; }
+    .video-container { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 1rem; overflow: hidden; }
+    @media (max-width: 640px) { .video-container { aspect-ratio: 4/3; border-radius: 0.75rem; } }
+    
+    .fullscreen-btn { position: absolute; top: 0.5rem; right: 0.5rem; z-index: 30; background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 0.4rem; cursor: pointer; transition: all 0.2s; }
     .fullscreen-btn:hover { background: rgba(99, 102, 241, 0.55); }
-    .waiting-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(8, 11, 26, 0.92); z-index: 5; gap: 0.5rem; text-align: center; }
+    
+    .waiting-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(8, 11, 26, 0.92); z-index: 5; gap: 0.5rem; text-align: center; padding: 1rem; }
+    
     .pulse { position: relative; }
     .pulse::after { content: ""; position: absolute; inset: -8px; border-radius: 999px; border: 2px solid rgba(94,234,212,0.35); animation: pulse 1.8s infinite; }
     @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.9; } 100% { transform: scale(1.3); opacity: 0; } }
-    .meter { width: 6px; background: linear-gradient(180deg, #22c55e, #ef4444); border-radius: 6px; height: 48px; overflow: hidden; position: relative; }
+    
+    .meter { width: 5px; background: linear-gradient(180deg, #22c55e, #ef4444); border-radius: 6px; height: 32px; overflow: hidden; position: relative; }
+    @media (min-width: 640px) { .meter { height: 40px; width: 6px; } }
     .meter .level { position: absolute; bottom: 0; width: 100%; background: linear-gradient(180deg, #22c55e, #eab308, #ef4444); border-radius: 6px; }
+    
     .no-media { background: linear-gradient(135deg, #1e293b, #334155); border: 2 dashed #475569; }
-    .no-media-icon { font-size: 3rem; opacity: 0.3; }
+    .no-media-icon { font-size: 1.5rem; opacity: 0.3; }
+    @media (min-width: 640px) { .no-media-icon { font-size: 2rem; } }
+    
     .msg-actions button { opacity: 0; transition: opacity 0.2s; }
     .chat-card:hover .msg-actions button { opacity: 1; }
+    @media (max-width: 768px) { .msg-actions button { opacity: 1; } }
+    
     .tooltip { position: fixed; padding: 8px 10px; border-radius: 10px; background: rgba(15,23,42,0.9); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; font-size: 12px; z-index: 100; pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity 0.2s ease, transform 0.2s ease; }
     .tooltip.show { opacity: 1; transform: translateY(0); }
+    
     .fade-out { animation: fadeOut 0.4s forwards; }
     @keyframes fadeOut { to { opacity: 0; transform: translateY(-4px); } }
+    
     .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 60; }
     .modal-backdrop.show { display: flex; }
     .viewer-content img, .viewer-content video { max-height: 80vh; max-width: 90vw; border-radius: 16px; }
-    .notification { position: fixed; top: 1rem; left: 1rem; z-index: 100; max-width: 320px; padding: 0.75rem 1rem; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; color: #e2e8f0; font-size: 13px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); opacity: 0; transform: translateX(-20px); transition: all 0.3s ease; pointer-events: none; }
+    
+    .notification { position: fixed; top: 1rem; left: 1rem; right: 1rem; z-index: 100; max-width: 320px; padding: 0.75rem 1rem; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; color: #e2e8f0; font-size: 13px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); opacity: 0; transform: translateX(-20px); transition: all 0.3s ease; pointer-events: none; }
     .notification.show { opacity: 1; transform: translateX(0); }
     .notification.hide { opacity: 0; transform: translateX(-20px); }
+    
+    /* Mobile controls */
+    .video-controls { 
+      position: absolute; 
+      bottom: 0; 
+      left: 0; 
+      right: 0; 
+      z-index: 20; 
+      padding: 0.5rem;
+      background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      justify-content: center;
+    }
+    @media (min-width: 640px) {
+      .video-controls { padding: 0.75rem; gap: 0.5rem; }
+    }
+    
+    .video-controls button {
+      padding: 0.4rem 0.6rem;
+      font-size: 0.7rem;
+      border-radius: 0.5rem;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.2);
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    @media (min-width: 640px) {
+      .video-controls button { padding: 0.5rem 0.75rem; font-size: 0.75rem; }
+    }
+    .video-controls button:hover { background: rgba(0,0,0,0.8); }
+    
+    .video-status {
+      position: absolute;
+      top: 0.5rem;
+      left: 0.5rem;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .control-btn-icon { display: inline; }
+    .control-btn-text { display: none; }
+    @media (min-width: 640px) {
+      .control-btn-text { display: inline; }
+    }
+    
+    /* Delete animation */
+    .msg-deleting {
+      animation: msgDelete 0.3s ease forwards;
+    }
+    @keyframes msgDelete {
+      to { opacity: 0; transform: translateX(-20px) scale(0.95); height: 0; margin: 0; padding: 0; }
+    }
   </style>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100">
@@ -48,166 +134,159 @@
     <div class="absolute w-[700px] h-[700px] -bottom-40 -right-40 rounded-full bg-fuchsia-500/20 blur-[160px]"></div>
   </div>
 
-  <header class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-white/10 glass sticky top-0 z-20">
-    <div class="flex items-center gap-3">
-      <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center font-bold text-xl shadow-lg shadow-indigo-900/50" data-tip="Стрим Платформа">📹</div>
+  <header class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 md:px-4 md:py-3 border-b border-white/10 glass sticky top-0 z-20">
+    <div class="flex items-center gap-2 md:gap-3">
+      <div class="h-8 w-8 md:h-10 md:w-10 rounded-xl md:rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center font-bold text-lg md:text-xl shadow-lg shadow-indigo-900/50">📹</div>
       <div>
-        <h1 class="text-lg md:text-xl font-semibold">Стрим Платформа</h1>
-        <p class="text-xs text-slate-400">P2P | Без серверного ретранслятора</p>
+        <h1 class="text-base md:text-xl font-semibold">Стрим Платформа</h1>
+        <p class="text-[10px] md:text-xs text-slate-400 hidden sm:block">P2P | Без серверного ретранслятора</p>
       </div>
     </div>
-    <div class="flex items-center gap-2 text-sm flex-wrap">
-      <span id="callStatus" class="px-3 py-1 rounded-full bg-white/10 border border-white/10 text-slate-200 text-xs">Ожидание</span>
-      <span id="connectionQuality" class="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-100 text-xs">Скорость: —</span>
-      <span id="callTimer" class="px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-100 text-xs">00:00</span>
+    <div class="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-xs flex-wrap">
+      <span id="callStatus" class="px-2 py-0.5 md:px-3 md:py-1 rounded-full bg-white/10 border border-white/10 text-slate-200">Ожидание</span>
+      <span id="connectionQuality" class="px-2 py-0.5 md:px-3 md:py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-100 hidden sm:inline-block">Скорость: —</span>
+      <span id="callTimer" class="px-2 py-0.5 md:px-3 md:py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-100">00:00</span>
     </div>
   </header>
 
-  <main class="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 max-w-6xl mx-auto">
-    <section class="lg:col-span-2 space-y-4">
+  <main class="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4 p-2 md:p-4 max-w-6xl mx-auto">
+    <section class="lg:col-span-2 space-y-3 md:space-y-4">
       <div class="video-container glass border border-white/10 shadow-2xl shadow-indigo-900/30">
         <video id="remoteVideo" class="main-video" autoplay playsinline></video>
         <div id="localVideoContainer" class="pip-video no-media flex items-center justify-center">
           <div class="text-center">
             <div class="no-media-icon">📹</div>
-            <p class="text-xs text-slate-400 mt-2">Нет камеры</p>
+            <p class="text-[8px] md:text-xs text-slate-400 mt-1">Нет камеры</p>
           </div>
         </div>
         <video id="localVideo" class="pip-video hidden" autoplay muted playsinline></video>
 
         <div id="waitingOverlay" class="waiting-overlay">
-          <div class="text-5xl mb-2">📞</div>
-          <p class="text-slate-200 text-lg">Ожидание подключения друга...</p>
-          <p class="text-slate-400 text-sm">Поделитесь кодом, чтобы начать</p>
+          <div class="text-4xl md:text-5xl mb-2">📞</div>
+          <p class="text-slate-200 text-base md:text-lg">Ожидание подключения...</p>
+          <p class="text-slate-400 text-xs md:text-sm">Поделитесь кодом, чтобы начать</p>
         </div>
 
-        <button id="fullscreenMain" class="fullscreen-btn text-white text-sm" data-tip="На весь экран">⛶</button>
+        <button id="fullscreenMain" class="fullscreen-btn text-white text-sm">⛶</button>
 
-        <div class="absolute bottom-3 left-3 flex flex-wrap gap-2 z-20">
-          <button id="toggleMic" class="px-3 py-1.5 rounded-lg bg-black/50 border border-white/20 text-sm hover:bg-black/70 transition" data-tip="Микрофон">🎤 Микрофон</button>
-          <button id="toggleCam" class="px-3 py-1.5 rounded-lg bg-black/50 border border-white/20 text-sm hover:bg-black/70 transition" data-tip="Камера">📷 Камера</button>
-          <button id="shareScreen" class="px-3 py-1.5 rounded-lg bg-black/50 border border-white/20 text-sm hover:bg-black/70 transition" data-tip="Демонстрация экрана">🖥️ Экран</button>
-          <button id="snapBtn" class="px-3 py-1.5 rounded-lg bg-black/50 border border-white/20 text-sm hover:bg-black/70 transition" data-tip="Скриншот">📸 Скрин</button>
-          <button id="recordBtn" class="px-3 py-1.5 rounded-lg bg-black/50 border border-white/20 text-sm hover:bg-black/70 transition" data-tip="Запись">⏺️ Запись</button>
-        </div>
-
-        <div class="absolute top-3 left-3 flex items-center gap-3 z-20">
-          <div class="flex items-center gap-2 px-2 py-1 rounded-lg bg-black/40 border border-white/10">
+        <div class="video-status">
+          <div class="flex items-center gap-1.5 px-1.5 py-0.5 md:px-2 md:py-1 rounded-lg bg-black/40 border border-white/10">
             <div class="meter"><div id="level" class="level" style="height: 5%"></div></div>
-            <span class="text-xs text-slate-200">Микш.уровень</span>
+            <span class="text-[10px] md:text-xs text-slate-200 hidden sm:inline">Микш.</span>
           </div>
-          <div id="liveBadge" class="pulse px-3 py-1 rounded-full bg-rose-600/70 text-xs font-semibold border border-rose-200/30 shadow-lg shadow-rose-900/50">LIVE</div>
+          <div id="liveBadge" class="pulse px-2 py-0.5 md:px-3 md:py-1 rounded-full bg-rose-600/70 text-[10px] md:text-xs font-semibold border border-rose-200/30 shadow-lg shadow-rose-900/50">LIVE</div>
+        </div>
+
+        <div class="video-controls">
+          <button id="toggleMic"><span class="control-btn-icon">🎤</span><span class="control-btn-text"> Микрофон</span></button>
+          <button id="toggleCam"><span class="control-btn-icon">📷</span><span class="control-btn-text"> Камера</span></button>
+          <button id="shareScreen"><span class="control-btn-icon">🖥️</span><span class="control-btn-text"> Экран</span></button>
+          <button id="snapBtn"><span class="control-btn-icon">📸</span><span class="control-btn-text"> Скрин</span></button>
+          <button id="recordBtn"><span class="control-btn-icon">⏺️</span><span class="control-btn-text"> Запись</span></button>
         </div>
       </div>
 
-      <div class="glass border border-white/10 rounded-xl p-4 space-y-3">
+      <div class="glass border border-white/10 rounded-xl p-3 md:p-4 space-y-3">
         <div class="flex items-center justify-between gap-2 flex-wrap">
           <h3 class="font-semibold text-sm">Подключение</h3>
-          <div class="flex gap-2 flex-wrap">
-            <button id="createOfferBtn" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm transition" data-tip="Создать код приглашения">Создать код</button>
-            <button id="connectBtn" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm transition" data-tip="Подключиться по коду">Подключиться</button>
-            <button id="resetCall" class="px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-sm transition" data-tip="Завершить звонок">Завершить</button>
+          <div class="flex gap-1.5 md:gap-2 flex-wrap">
+            <button id="createOfferBtn" class="px-2 py-1 md:px-3 md:py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs md:text-sm transition">Создать код</button>
+            <button id="connectBtn" class="px-2 py-1 md:px-3 md:py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs md:text-sm transition">Подключиться</button>
+            <button id="resetCall" class="px-2 py-1 md:px-3 md:py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-xs md:text-sm transition">Завершить</button>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
           <div class="space-y-1">
             <label class="text-xs text-slate-400">Ваш код</label>
             <div class="flex gap-2">
-              <textarea id="inviteOut" rows="2" class="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-xs font-mono resize-none" placeholder="Нажмите 'Создать код'"></textarea>
-              <button id="copyInvite" class="px-2 py-1 rounded-lg bg-white/10 border border-white/10 text-xs hover:bg-white/20" data-tip="Скопировать код">📋</button>
+              <textarea id="inviteOut" rows="2" class="flex-1 px-2 py-1.5 md:px-3 md:py-2 rounded-lg bg-black/40 border border-white/10 text-[10px] md:text-xs font-mono resize-none" placeholder="Нажмите 'Создать код'"></textarea>
+              <button id="copyInvite" class="px-2 py-1 rounded-lg bg-white/10 border border-white/10 text-xs hover:bg-white/20">📋</button>
             </div>
           </div>
           <div class="space-y-1">
             <label class="text-xs text-slate-400">Код друга</label>
-            <textarea id="inviteIn" rows="2" class="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-xs font-mono resize-none" placeholder="Вставьте код друга"></textarea>
+            <textarea id="inviteIn" rows="2" class="w-full px-2 py-1.5 md:px-3 md:py-2 rounded-lg bg-black/40 border border-white/10 text-[10px] md:text-xs font-mono resize-none" placeholder="Вставьте код друга"></textarea>
           </div>
         </div>
 
-        <div class="flex gap-2 flex-wrap">
-          <button id="enableMediaBtn" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-sm transition" data-tip="Подключить камеру и микрофон позже">🔌 Включить медиа</button>
-        </div>
-
-        <div class="mt-3 p-3 rounded-lg bg-white/5 border border-white/10">
-          <h4 class="text-xs font-semibold text-indigo-300 mb-2">📖 Как это работает:</h4>
-          <ol class="text-xs text-slate-400 space-y-1 pl-4 list-decimal">
-            <li><strong>Создайте код:</strong> Нажмите "Создать код" и скопируйте код из поля "Ваш код"</li>
-            <li><strong>Отправьте другу:</strong> Передайте код другу любым способом (мессенджер, email и т.д.)</li>
-            <li><strong>Друг подключается:</strong> Друг вставляет ваш код в поле "Код друга" и нажимает "Подключиться"</li>
-            <li><strong>Обмен кодами:</strong> Друг отправляет вам свой код ответа, вы вставляете его в "Код друга" и нажимаете "Подключиться"</li>
-            <li><strong>Готово!</strong> Установлено P2P соединение напрямую между вами, без серверов</li>
-          </ol>
-        </div>
+        <details class="mt-2">
+          <summary class="text-xs font-semibold text-indigo-300 cursor-pointer">📖 Как это работает?</summary>
+          <div class="mt-2 p-2 md:p-3 rounded-lg bg-white/5 border border-white/10">
+            <ol class="text-[10px] md:text-xs text-slate-400 space-y-1 pl-4 list-decimal">
+              <li><strong>Создайте код:</strong> Нажмите "Создать код" и скопируйте код из поля "Ваш код"</li>
+              <li><strong>Отправьте другу:</strong> Передайте код другу любым способом</li>
+              <li><strong>Друг подключается:</strong> Друг вставляет ваш код и нажимает "Подключиться"</li>
+              <li><strong>Обмен кодами:</strong> Друг отправляет вам свой код ответа</li>
+              <li><strong>Готово!</strong> P2P соединение установлено</li>
+            </ol>
+          </div>
+        </details>
       </div>
     </section>
 
-    <aside class="glass border border-white/10 rounded-xl shadow-2xl shadow-indigo-900/30 flex flex-col h-[55vh] lg:h-[78vh]">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-white/5">
+    <aside class="glass border border-white/10 rounded-xl shadow-2xl shadow-indigo-900/30 flex flex-col h-[50vh] lg:h-[78vh]">
+      <div class="flex items-center justify-between px-3 py-2 md:px-4 md:py-3 border-b border-white/5">
         <div>
-          <h2 class="font-semibold">Чат</h2>
-          <p class="text-xs text-slate-400">Сообщения через DataChannel</p>
+          <h2 class="font-semibold text-sm">Чат</h2>
+          <p class="text-[10px] md:text-xs text-slate-400">DataChannel</p>
         </div>
-        <div class="flex gap-2">
-          <button id="saveLog" class="text-xs px-2 py-1 rounded bg-white/10 border border-white/10 hover:bg-white/15" data-tip="Сохранить историю">Сохранить</button>
-          <button id="clearBtn" class="text-xs px-2 py-1 rounded bg-white/10 border border-white/10 hover:bg-white/15" data-tip="Очистить чат">Очистить</button>
+        <div class="flex gap-1.5 md:gap-2">
+          <button id="saveLog" class="text-[10px] md:text-xs px-1.5 py-0.5 md:px-2 md:py-1 rounded bg-white/10 border border-white/10 hover:bg-white/15">💾</button>
+          <button id="clearBtn" class="text-[10px] md:text-xs px-1.5 py-0.5 md:px-2 md:py-1 rounded bg-white/10 border border-white/10 hover:bg-white/15">🗑️</button>
         </div>
       </div>
 
-      <div id="chat" class="flex-1 overflow-y-auto p-3 space-y-2 scrollbar"></div>
+      <div id="chat" class="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 scrollbar"></div>
 
-      <div class="p-3 border-t border-white/5 space-y-2">
-        <div id="replyBadge" class="hidden items-center justify-between px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs">
-          <span id="replyText" class="text-slate-200"></span>
-          <button id="cancelReply" class="text-rose-300" data-tip="Отменить ответ">✕</button>
+      <div class="p-2 md:p-3 border-t border-white/5 space-y-2">
+        <div id="replyBadge" class="hidden items-center justify-between px-2 py-1.5 md:px-3 md:py-2 rounded-lg bg-white/5 border border-white/10 text-[10px] md:text-xs">
+          <span id="replyText" class="text-slate-200 truncate"></span>
+          <button id="cancelReply" class="text-rose-300 ml-2">✕</button>
         </div>
-        <div class="flex gap-2 items-center">
-          <button id="attachBtn" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 transition text-sm" data-tip="Прикрепить файл">📎</button>
+        <div class="flex gap-1.5 md:gap-2 items-center">
+          <button id="attachBtn" class="px-2 py-1.5 md:px-3 md:py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 transition text-sm">📎</button>
           <input id="fileInput" type="file" class="hidden" accept="image/*,video/*,audio/*,.pdf,.zip,.txt,.doc,.docx" />
-          <input id="messageInput" type="text" placeholder="Сообщение..." class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 focus:outline-none focus:border-indigo-400/60 text-sm" />
-          <button id="emojiBtn" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 transition text-sm" data-tip="Эмодзи">😊</button>
-          <button id="sendBtn" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition text-sm" data-tip="Отправить">➤</button>
+          <input id="messageInput" type="text" placeholder="Сообщение..." class="flex-1 min-w-0 px-2 py-1.5 md:px-3 md:py-2 rounded-lg bg-white/5 border border-white/10 focus:outline-none focus:border-indigo-400/60 text-xs md:text-sm" />
+          <button id="emojiBtn" class="px-2 py-1.5 md:px-3 md:py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 transition text-sm">😊</button>
+          <button id="sendBtn" class="px-3 py-1.5 md:px-4 md:py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition text-sm">➤</button>
         </div>
-        <p class="text-[11px] text-slate-500">Поддержка: ответы, реакции, файлы, картинки с рисованием перед отправкой.</p>
       </div>
     </aside>
   </main>
 
   <!-- Рисовалка для картинок -->
-  <div id="drawModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-    <div class="bg-slate-900 rounded-2xl border border-white/10 shadow-2xl w-full max-w-3xl overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+  <div id="drawModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-2 md:p-4">
+    <div class="bg-slate-900 rounded-xl md:rounded-2xl border border-white/10 shadow-2xl w-full max-w-3xl overflow-hidden">
+      <div class="flex items-center justify-between px-3 py-2 md:px-4 md:py-3 border-b border-white/10">
         <div>
-          <h3 class="font-semibold text-sm">Редактирование изображения</h3>
-          <p class="text-xs text-slate-400">Рисуйте поверх картинки и отправьте в чат</p>
+          <h3 class="font-semibold text-xs md:text-sm">Редактирование</h3>
         </div>
-        <div class="flex gap-2 text-xs">
-          <label class="flex items-center gap-1 cursor-pointer"><input type="color" id="brushColor" value="#f472b6" class="h-6 w-6 p-0 border-0 bg-transparent" /><span>Цвет</span></label>
-          <input id="brushSize" type="range" min="2" max="18" value="6" class="w-24 accent-indigo-400" />
-          <button id="clearCanvas" class="px-2 py-1 rounded bg-white/10 border border-white/10 hover:bg-white/20">Очистить</button>
-          <button id="closeDraw" class="px-2 py-1 rounded bg-white/10 border border-white/10 hover:bg-white/20">✕</button>
+        <div class="flex gap-1.5 md:gap-2 text-[10px] md:text-xs items-center">
+          <input type="color" id="brushColor" value="#f472b6" class="h-6 w-6 p-0 border-0 bg-transparent rounded" />
+          <input id="brushSize" type="range" min="2" max="18" value="6" class="w-16 md:w-24 accent-indigo-400" />
+          <button id="clearCanvas" class="px-1.5 py-0.5 md:px-2 md:py-1 rounded bg-white/10 border border-white/10 hover:bg-white/20">🔄</button>
+          <button id="closeDraw" class="px-1.5 py-0.5 md:px-2 md:py-1 rounded bg-white/10 border border-white/10 hover:bg-white/20">✕</button>
         </div>
       </div>
-      <div class="p-4 bg-slate-950">
-        <canvas id="drawCanvas" class="w-full rounded-lg border border-white/10 bg-black"></canvas>
+      <div class="p-2 md:p-4 bg-slate-950">
+        <canvas id="drawCanvas" class="w-full rounded-lg border border-white/10 bg-black touch-none"></canvas>
       </div>
-      <div class="flex justify-between items-center px-4 py-3 border-t border-white/10">
-        <span class="text-xs text-slate-400">Поддерживаются PNG/JPG</span>
-        <div class="flex gap-2">
-          <button id="sendDrawing" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm">Отправить</button>
-        </div>
+      <div class="flex justify-end px-3 py-2 md:px-4 md:py-3 border-t border-white/10">
+        <button id="sendDrawing" class="px-3 py-1.5 md:py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs md:text-sm">Отправить</button>
       </div>
     </div>
   </div>
 
   <!-- Просмотр изображений/видео -->
   <div id="viewer" class="modal-backdrop">
-    <div class="viewer-content relative bg-slate-900/80 border border-white/10 rounded-2xl p-4 shadow-2xl">
-      <button id="viewerClose" class="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-black/70 text-white border border-white/20" data-tip="Закрыть">✕</button>
+    <div class="viewer-content relative bg-slate-900/80 border border-white/10 rounded-xl md:rounded-2xl p-2 md:p-4 shadow-2xl">
+      <button id="viewerClose" class="absolute -top-2 -right-2 md:-top-3 md:-right-3 h-7 w-7 md:h-8 md:w-8 rounded-full bg-black/70 text-white border border-white/20 text-sm">✕</button>
       <div id="viewerBody" class="flex justify-center items-center"></div>
     </div>
   </div>
 
-  <div id="tooltip" class="tooltip"></div>
+  <div id="tooltip" class="tooltip hidden md:block"></div>
 
   <script>
     // Elements
@@ -240,7 +319,6 @@
     const recordBtn = document.getElementById('recordBtn');
     const liveBadge = document.getElementById('liveBadge');
     const levelEl = document.getElementById('level');
-    const enableMediaBtn = document.getElementById('enableMediaBtn');
 
     const attachBtn = document.getElementById('attachBtn');
     const fileInput = document.getElementById('fileInput');
@@ -276,7 +354,6 @@
     let recorder = null;
     let recordedChunks = [];
     let hasMediaDevices = false;
-    let pendingSignalCode = '';
 
     let fallbackAudioTrack = null;
     let fallbackVideoTrack = null;
@@ -322,7 +399,6 @@
       const existingSenders = peer.getSenders();
       let audioSender = existingSenders.find(s => s.track && s.track.kind === 'audio');
       let videoSender = existingSenders.find(s => s.track && s.track.kind === 'video');
-      // Association with a stream is needed for some standard implementations
       if (!audioSender) audioSender = peer.addTrack(fallbackAudioTrack, new MediaStream([fallbackAudioTrack]));
       if (!videoSender) videoSender = peer.addTrack(fallbackVideoTrack, new MediaStream([fallbackVideoTrack]));
       return { audioSender, videoSender };
@@ -344,7 +420,7 @@
         error: 'bg-rose-500/20 border-rose-400/60 text-rose-100'
       };
       callStatus.textContent = text;
-      callStatus.className = `px-3 py-1 rounded-full text-xs ${tones[tone] || tones.neutral}`;
+      callStatus.className = `px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs ${tones[tone] || tones.neutral}`;
     }
 
     const makeId = () => 'm-' + Math.random().toString(36).slice(2,9) + Date.now().toString(36);
@@ -361,13 +437,27 @@
         notification.classList.add('hide');
         notification.classList.remove('show');
         setTimeout(() => notification.remove(), 300);
-      }, 6000);
+      }, 4000);
+    }
+
+    function deleteMessage(id) {
+      const entry = messageMap.get(id);
+      if (!entry) return;
+      entry.el.classList.add('msg-deleting');
+      setTimeout(() => {
+        entry.el.remove();
+        messageMap.delete(id);
+      }, 300);
+      // Notify remote about deletion
+      if (dataChannel?.readyState === 'open') {
+        dataChannel.send(JSON.stringify({ type: 'delete', id }));
+      }
     }
 
     function addMessage(user, text, type = 'text', extra = {}, opts = {}) {
       const id = opts.id || makeId();
       const wrap = document.createElement('div');
-      wrap.className = 'chat-card p-2 rounded-lg bg-white/5 border border-white/5 space-y-2 relative';
+      wrap.className = 'chat-card p-2 rounded-lg bg-white/5 border border-white/5 space-y-1.5 relative';
       wrap.dataset.id = id;
 
       const isMe = user === 'Вы';
@@ -376,32 +466,32 @@
 
       const header = document.createElement('div');
       header.className = 'flex items-center gap-2';
-      header.innerHTML = `<div class="h-6 w-6 rounded-full bg-gradient-to-br ${color} flex items-center justify-center text-[10px] font-semibold">${initial}</div><span class="font-medium text-sm">${user}</span>`;
+      header.innerHTML = `<div class="h-5 w-5 md:h-6 md:w-6 rounded-full bg-gradient-to-br ${color} flex items-center justify-center text-[9px] md:text-[10px] font-semibold">${initial}</div><span class="font-medium text-xs md:text-sm">${user}</span>`;
       wrap.appendChild(header);
 
       if (opts.replyPreview) {
         const reply = document.createElement('div');
-        reply.className = 'text-[11px] text-slate-400 bg-white/5 border border-white/10 rounded px-2 py-1 ml-8';
-        reply.textContent = 'Ответ на: ' + opts.replyPreview;
+        reply.className = 'text-[10px] md:text-[11px] text-slate-400 bg-white/5 border border-white/10 rounded px-2 py-1 ml-6 md:ml-8 truncate';
+        reply.textContent = 'Ответ: ' + opts.replyPreview;
         wrap.appendChild(reply);
       }
 
       const body = document.createElement('div');
-      body.className = 'pl-8 space-y-2';
+      body.className = 'pl-6 md:pl-8 space-y-1.5';
 
       if (type === 'text') {
         const p = document.createElement('p');
-        p.className = 'text-sm text-slate-200 whitespace-pre-wrap';
+        p.className = 'text-xs md:text-sm text-slate-200 whitespace-pre-wrap break-words';
         p.textContent = text;
         body.appendChild(p);
       } else if (type === 'file') {
         const box = document.createElement('div');
-        box.className = 'flex items-center gap-2 text-sm text-slate-200';
-        box.innerHTML = `📄 <span class="break-all">${extra.name || 'файл'}</span> <span class="text-slate-500 text-xs">${extra.size || ''}</span>`;
+        box.className = 'flex items-center gap-2 text-xs md:text-sm text-slate-200 flex-wrap';
+        box.innerHTML = `📄 <span class="break-all">${extra.name || 'файл'}</span> <span class="text-slate-500 text-[10px] md:text-xs">${extra.size || ''}</span>`;
         const dl = document.createElement('a');
         dl.href = extra.url; dl.download = extra.name || 'file'; dl.target = '_blank';
-        dl.className = 'ml-auto px-2 py-1 text-xs rounded bg-white/10 border border-white/10 hover:bg-white/20';
-        dl.textContent = 'Скачать';
+        dl.className = 'ml-auto px-2 py-0.5 text-[10px] md:text-xs rounded bg-white/10 border border-white/10 hover:bg-white/20';
+        dl.textContent = '⬇';
         box.appendChild(dl);
         body.appendChild(box);
       } else if (type === 'image') {
@@ -409,23 +499,25 @@
         fig.className = 'relative group';
         const img = document.createElement('img');
         img.src = extra.url; img.alt = extra.name || 'image';
-        img.className = 'max-h-48 rounded-lg border border-white/10 cursor-zoom-in';
+        img.className = 'max-h-32 md:max-h-48 rounded-lg border border-white/10 cursor-zoom-in';
         img.dataset.full = extra.url;
         fig.appendChild(img);
         const dl = document.createElement('a');
-        dl.href = extra.url; dl.download = extra.name || 'image'; dl.className = 'absolute top-2 right-2 px-2 py-1 text-xs rounded bg-black/60 border border-white/20 opacity-0 group-hover:opacity-100 transition';
-        dl.textContent = 'Скачать';
+        dl.href = extra.url; dl.download = extra.name || 'image'; 
+        dl.className = 'absolute top-1 right-1 md:top-2 md:right-2 px-1.5 py-0.5 md:px-2 md:py-1 text-[10px] md:text-xs rounded bg-black/60 border border-white/20 opacity-0 group-hover:opacity-100 transition';
+        dl.textContent = '⬇';
         fig.appendChild(dl);
         body.appendChild(fig);
       } else if (type === 'video') {
         const box = document.createElement('div');
         box.className = 'relative group';
         const vid = document.createElement('video');
-        vid.src = extra.url; vid.controls = true; vid.className = 'rounded-lg border border-white/10 max-h-64';
+        vid.src = extra.url; vid.controls = true; vid.className = 'rounded-lg border border-white/10 max-h-40 md:max-h-64 w-full';
         box.appendChild(vid);
         const dl = document.createElement('a');
-        dl.href = extra.url; dl.download = extra.name || 'video'; dl.className = 'absolute top-2 right-2 px-2 py-1 text-xs rounded bg-black/60 border border-white/20 opacity-0 group-hover:opacity-100 transition';
-        dl.textContent = 'Скачать';
+        dl.href = extra.url; dl.download = extra.name || 'video'; 
+        dl.className = 'absolute top-1 right-1 md:top-2 md:right-2 px-1.5 py-0.5 md:px-2 md:py-1 text-[10px] md:text-xs rounded bg-black/60 border border-white/20 opacity-0 group-hover:opacity-100 transition';
+        dl.textContent = '⬇';
         box.appendChild(dl);
         body.appendChild(box);
       }
@@ -433,20 +525,31 @@
       wrap.appendChild(body);
 
       const actions = document.createElement('div');
-      actions.className = 'msg-actions flex gap-2 text-xs text-slate-400 pl-8';
+      actions.className = 'msg-actions flex gap-1.5 md:gap-2 text-[10px] md:text-xs text-slate-400 pl-6 md:pl-8';
+      
       const replyBtn = document.createElement('button');
-      replyBtn.className = 'px-2 py-1 rounded bg-white/5 border border-white/10';
-      replyBtn.textContent = 'Ответить';
+      replyBtn.className = 'px-1.5 py-0.5 md:px-2 md:py-1 rounded bg-white/5 border border-white/10 hover:bg-white/10';
+      replyBtn.textContent = '↩';
+      replyBtn.title = 'Ответить';
       replyBtn.onclick = () => setReply({ id, preview: (text || extra.name || '').slice(0,60) });
+      
       const reactBtn = document.createElement('button');
-      reactBtn.className = 'px-2 py-1 rounded bg-white/5 border border-white/10';
+      reactBtn.className = 'px-1.5 py-0.5 md:px-2 md:py-1 rounded bg-white/5 border border-white/10 hover:bg-white/10';
       reactBtn.textContent = '😊';
+      reactBtn.title = 'Реакция';
       reactBtn.onclick = () => openReactionMenu(id, reactBtn);
-      actions.append(replyBtn, reactBtn);
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'px-1.5 py-0.5 md:px-2 md:py-1 rounded bg-white/5 border border-white/10 hover:bg-rose-500/30 text-rose-300';
+      deleteBtn.textContent = '🗑';
+      deleteBtn.title = 'Удалить';
+      deleteBtn.onclick = () => deleteMessage(id);
+      
+      actions.append(replyBtn, reactBtn, deleteBtn);
       wrap.appendChild(actions);
 
       const reactRow = document.createElement('div');
-      reactRow.className = 'flex gap-1 pl-8 pt-1 flex-wrap text-lg';
+      reactRow.className = 'flex gap-1 pl-6 md:pl-8 pt-1 flex-wrap text-sm md:text-lg';
       wrap.appendChild(reactRow);
 
       chat.appendChild(wrap);
@@ -461,7 +564,7 @@
       if (!entry) return;
       const span = document.createElement('span');
       span.textContent = emoji;
-      span.className = 'bg-white/10 rounded px-2 py-1';
+      span.className = 'bg-white/10 rounded px-1.5 py-0.5';
       entry.reactions.appendChild(span);
     }
 
@@ -471,7 +574,7 @@
       menu.className = 'absolute z-30 bg-slate-900 border border-white/10 rounded-lg px-2 py-1 flex gap-1 shadow-xl';
       emojis.forEach(e => {
         const b = document.createElement('button');
-        b.textContent = e; b.className = 'hover:scale-110 transition';
+        b.textContent = e; b.className = 'hover:scale-110 transition text-base md:text-lg';
         b.onclick = (ev) => {
           ev.stopPropagation();
           applyReaction(id, e);
@@ -482,8 +585,9 @@
       });
       document.body.appendChild(menu);
       const rect = anchor.getBoundingClientRect();
-      menu.style.top = (rect.bottom + 6) + 'px';
-      menu.style.left = (rect.left) + 'px';
+      menu.style.position = 'fixed';
+      menu.style.top = Math.min(rect.bottom + 6, window.innerHeight - 50) + 'px';
+      menu.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 200)) + 'px';
       const remover = () => menu.remove();
       setTimeout(() => document.addEventListener('click', remover, { once: true }), 0);
     }
@@ -510,7 +614,7 @@
 
     sendBtn.addEventListener('click', () => sendMessage());
     messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
-    clearBtn.addEventListener('click', () => chat.innerHTML = '');
+    clearBtn.addEventListener('click', () => { chat.innerHTML = ''; messageMap.clear(); });
     saveLog.addEventListener('click', () => {
       const blob = new Blob([chat.innerText], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
@@ -518,15 +622,15 @@
     });
 
     function openEmojiPicker(anchor) {
-      const emojis = '😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😜 🤪 😝 🤑 🤗 🤭 🤫 🤔 🤐 🤨 😐 😑 😶 😏 😒 🙄 😬 🤥 😌 😔 😪 🤤 😴 😷 🤒 🤕 🤢 🤮 🤧 🥵 🥶 🥴 😵 🤯 🤠 🥳 😎 🤓 🧐 😕 😟 🙁 ☹️ 😮 😯 😲 😳 🥺 😦 😧 😨 😰 😥 😢 🤤😭 😱 😖 😣 😞 😓 😩 😫 🥱 😤 😡 😠 🤬 😈 👿 💀 ☠️ 💩 🤡 👹 👺 👻 👽 🤖 🎃 😺 😸 😹 😻 😼 😽 🙀 😿 😾 👍 👎 👊 ✊ 🤛 🤜 🤞 ✌️ 🤟 🤘 🤙 👋 🤚 🖐️ ✋ 🖖 👌 🤌 ✍️ 🙏 💪 🤲 👐 🤝 🙌 👏 🤝 🤏 💅 🤳 💃 🕺 👯‍♀️ 👯‍♂️ 🧖‍♀️ 🧖‍♂️ 👶 👧 🧒 👦 👩 🧑 👨 👩‍🦰 👨‍🦰 👩‍🦱 👨‍🦱 👩‍🦲 👨‍🦲 👩‍🦳 👨‍🦳 👱‍♀️ 👱‍♂️ 🧔 👵 👴 👫 👭 👬 💑 💏 ❤️ 🧡 💛 💚 💙 💜 🤎 🖤 🤍 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 💌'.split(/\s+/);
+      const emojis = '😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😜 🤪 😝 🤑 🤗 🤭 🤫 🤔 🤐 🤨 😐 😑 😶 😏 😒 🙄 😬 🤥 😌 😔 😪 🤤 😴 😷 🤒 🤕 🤢 🤮 🤧 🥵 🥶 🥴 😵 🤯 🤠 🥳 😎 🤓 🧐 😕 😟 🙁 ☹️ 😮 😯 😲 😳 🥺 😦 😧 😨 😰 😥 😢 😭 😱 😖 😣 😞 😓 😩 😫 🥱 😤 😡 😠 🤬 😈 👿 💀 ☠️ 💩 🤡 👹 👺 👻 👽 🤖 🎃 👍 👎 👊 ✊ 🤛 🤜 🤞 ✌️ 🤟 🤘 🤙 👋 🖐️ ✋ 👌 🙏 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💔 💕 💞 💓 💗 💖 💘 💝'.split(/\s+/);
       const menu = document.createElement('div');
-      menu.className = 'absolute z-30 max-w-xs bg-slate-900 border border-white/10 rounded-xl p-2 shadow-2xl grid grid-cols-8 gap-1 text-lg';
+      menu.className = 'fixed z-30 max-w-[280px] md:max-w-xs bg-slate-900 border border-white/10 rounded-xl p-2 shadow-2xl grid grid-cols-8 gap-1 text-base md:text-lg max-h-[50vh] overflow-y-auto';
 
       emojis.forEach(e => {
         if (!e) return;
         const b = document.createElement('button');
         b.textContent = e;
-        b.className = 'hover:scale-110 transition leading-none';
+        b.className = 'hover:scale-110 transition leading-none p-0.5';
         b.onclick = (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
@@ -545,8 +649,9 @@
       document.body.appendChild(menu);
       const rect = anchor.getBoundingClientRect();
       const mw = menu.offsetWidth;
-      menu.style.top = rect.top - menu.offsetHeight - 8 + 'px';
-      menu.style.left = Math.max(8, rect.left + rect.width / 2 - mw / 2) + 'px';
+      const mh = menu.offsetHeight;
+      menu.style.top = Math.max(8, rect.top - mh - 8) + 'px';
+      menu.style.left = Math.max(8, Math.min(rect.left + rect.width / 2 - mw / 2, window.innerWidth - mw - 8)) + 'px';
 
       const close = (ev) => {
         if (!menu.contains(ev.target)) {
@@ -570,7 +675,9 @@
     let imgForDraw = new Image();
 
     function resizeCanvasToImage(img) {
-      const maxW = 1024, maxH = 720;
+      const container = drawCanvas.parentElement;
+      const maxW = Math.min(1024, container.clientWidth - 16);
+      const maxH = 500;
       let { width, height } = img;
       const scale = Math.min(1, maxW / width, maxH / height);
       width = Math.floor(width * scale); height = Math.floor(height * scale);
@@ -581,17 +688,33 @@
 
     function openDrawModal(file) {
       const reader = new FileReader();
-      reader.onload = e => { imgForDraw.onload = () => { resizeCanvasToImage(imgForDraw); drawModal.classList.remove('hidden'); }; imgForDraw.src = e.target.result; };
+      reader.onload = e => { imgForDraw.onload = () => { resizeCanvasToImage(imgForDraw); drawModal.classList.remove('hidden'); drawModal.classList.add('flex'); }; imgForDraw.src = e.target.result; };
       reader.readAsDataURL(file);
       drawingImage = file;
     }
 
-    drawCanvas.addEventListener('mousedown', e => { drawing = true; ctxDraw.strokeStyle = brushColor.value; ctxDraw.lineWidth = brushSize.value; ctxDraw.lineCap = 'round'; ctxDraw.lineJoin = 'round'; ctxDraw.beginPath(); ctxDraw.moveTo(e.offsetX, e.offsetY); });
-    drawCanvas.addEventListener('mousemove', e => { if (!drawing) return; ctxDraw.lineTo(e.offsetX, e.offsetY); ctxDraw.stroke(); });
+    function getDrawPos(e) {
+      const rect = drawCanvas.getBoundingClientRect();
+      const scaleX = drawCanvas.width / rect.width;
+      const scaleY = drawCanvas.height / rect.height;
+      if (e.touches) {
+        return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
+      }
+      return { x: e.offsetX * scaleX, y: e.offsetY * scaleY };
+    }
+
+    drawCanvas.addEventListener('mousedown', e => { drawing = true; ctxDraw.strokeStyle = brushColor.value; ctxDraw.lineWidth = brushSize.value; ctxDraw.lineCap = 'round'; ctxDraw.lineJoin = 'round'; ctxDraw.beginPath(); const pos = getDrawPos(e); ctxDraw.moveTo(pos.x, pos.y); });
+    drawCanvas.addEventListener('mousemove', e => { if (!drawing) return; const pos = getDrawPos(e); ctxDraw.lineTo(pos.x, pos.y); ctxDraw.stroke(); });
     drawCanvas.addEventListener('mouseup', () => drawing = false);
     drawCanvas.addEventListener('mouseleave', () => drawing = false);
+    
+    // Touch support
+    drawCanvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; ctxDraw.strokeStyle = brushColor.value; ctxDraw.lineWidth = brushSize.value; ctxDraw.lineCap = 'round'; ctxDraw.lineJoin = 'round'; ctxDraw.beginPath(); const pos = getDrawPos(e); ctxDraw.moveTo(pos.x, pos.y); }, { passive: false });
+    drawCanvas.addEventListener('touchmove', e => { e.preventDefault(); if (!drawing) return; const pos = getDrawPos(e); ctxDraw.lineTo(pos.x, pos.y); ctxDraw.stroke(); }, { passive: false });
+    drawCanvas.addEventListener('touchend', () => drawing = false);
+    
     clearCanvasBtn.addEventListener('click', () => { ctxDraw.clearRect(0,0,drawCanvas.width,drawCanvas.height); ctxDraw.drawImage(imgForDraw,0,0,drawCanvas.width,drawCanvas.height); });
-    closeDraw.addEventListener('click', () => { drawModal.classList.add('hidden'); });
+    closeDraw.addEventListener('click', () => { drawModal.classList.add('hidden'); drawModal.classList.remove('flex'); });
 
     sendDrawing.addEventListener('click', () => {
       drawCanvas.toBlob(blob => {
@@ -602,6 +725,7 @@
           sendFile(blob, 'image.png', 'image/png', id);
         }
         drawModal.classList.add('hidden');
+        drawModal.classList.remove('flex');
       }, 'image/png');
     });
 
@@ -715,13 +839,12 @@
         hasMediaDevices = true;
         updateMediaButtons();
         bindLocalTracks(localStream);
-        showNotification('✅ Камера и микрофон подключены');
         return true;
       } catch (err) {
         console.error('Camera error:', err);
         hasMediaDevices = false;
         updateMediaButtons();
-        showNotification('⚠️ Медиаустройства недоступны. Можно подключиться без них.');
+        showNotification('⚠️ Медиаустройства недоступны');
         return false;
       }
     }
@@ -729,15 +852,17 @@
     function updateMediaButtons() {
       toggleMic.disabled = !hasMediaDevices;
       toggleCam.disabled = !hasMediaDevices;
-      enableMediaBtn.style.display = hasMediaDevices ? 'none' : 'inline-block';
-      toggleMic.textContent = hasMediaDevices ? (micEnabled ? '🎤 Микрофон' : '🔇 Микрофон') : '🎤 Нет микрофона';
-      toggleCam.textContent = hasMediaDevices ? (camEnabled ? '📷 Камера' : '📷❌ Камера') : '📷 Нет камеры';
+      if (hasMediaDevices) {
+        toggleMic.innerHTML = micEnabled ? '<span class="control-btn-icon">🎤</span><span class="control-btn-text"> Микрофон</span>' : '<span class="control-btn-icon">🔇</span><span class="control-btn-text"> Микрофон</span>';
+        toggleCam.innerHTML = camEnabled ? '<span class="control-btn-icon">📷</span><span class="control-btn-text"> Камера</span>' : '<span class="control-btn-icon">📷❌</span><span class="control-btn-text"> Камера</span>';
+      } else {
+        toggleMic.innerHTML = '<span class="control-btn-icon">🎤❌</span>';
+        toggleCam.innerHTML = '<span class="control-btn-icon">📷❌</span>';
+      }
     }
 
-    enableMediaBtn.addEventListener('click', async () => { setStatus('Запрос медиа...', 'info'); await startCamera(); });
-
-    toggleMic.addEventListener('click', () => { if (!localStream || !hasMediaDevices) return; micEnabled = !micEnabled; localStream.getAudioTracks().forEach(t => t.enabled = micEnabled); toggleMic.textContent = micEnabled ? '🎤 Микрофон' : '🔇 Микрофон'; toggleMic.classList.toggle('bg-rose-600/50', !micEnabled); });
-    toggleCam.addEventListener('click', () => { if (!localStream || !hasMediaDevices) return; camEnabled = !camEnabled; localStream.getVideoTracks().forEach(t => t.enabled = camEnabled); toggleCam.textContent = camEnabled ? '📷 Камера' : '📷❌ Камера'; toggleCam.classList.toggle('bg-rose-600/50', !camEnabled); });
+    toggleMic.addEventListener('click', () => { if (!localStream || !hasMediaDevices) return; micEnabled = !micEnabled; localStream.getAudioTracks().forEach(t => t.enabled = micEnabled); updateMediaButtons(); toggleMic.classList.toggle('bg-rose-600/50', !micEnabled); });
+    toggleCam.addEventListener('click', () => { if (!localStream || !hasMediaDevices) return; camEnabled = !camEnabled; localStream.getVideoTracks().forEach(t => t.enabled = camEnabled); updateMediaButtons(); toggleCam.classList.toggle('bg-rose-600/50', !camEnabled); });
 
     shareScreen.addEventListener('click', async () => {
       if (screenStream) {
@@ -749,7 +874,7 @@
           await videoSender.replaceTrack(camTrack); 
         }
         localVideo.srcObject = localStream || new MediaStream([fallbackVideoTrack]);
-        shareScreen.textContent = '🖥️ Экран'; 
+        shareScreen.innerHTML = '<span class="control-btn-icon">🖥️</span><span class="control-btn-text"> Экран</span>'; 
         shareScreen.classList.remove('bg-indigo-600/50'); 
         addMessage('Вы', 'Демонстрация экрана остановлена');
       } else {
@@ -765,7 +890,7 @@
           localVideo.srcObject = screenStream; 
           localVideo.classList.remove('hidden'); 
           localVideoContainer.classList.add('hidden');
-          shareScreen.textContent = '🖥️ Стоп'; 
+          shareScreen.innerHTML = '<span class="control-btn-icon">🖥️</span><span class="control-btn-text"> Стоп</span>'; 
           shareScreen.classList.add('bg-indigo-600/50'); 
           addMessage('Вы', 'Демонстрация экрана началась');
           
@@ -774,7 +899,7 @@
           };
         } catch (err) { 
           console.error('Screen share error:', err); 
-          showNotification('❌ Не удалось начать демонстрацию экрана'); 
+          showNotification('❌ Не удалось начать демонстрацию'); 
         }
       }
     });
@@ -799,10 +924,11 @@
     });
 
     recordBtn.addEventListener('click', () => {
-      const stream = remoteVideo.srcObject || localVideo.srcObject; if (!stream) return showNotification('⚠️ Нет видеопотока для записи');
+      const stream = remoteVideo.srcObject || localVideo.srcObject; if (!stream) return showNotification('⚠️ Нет видеопотока');
       if (recorder && recorder.state === 'recording') { 
         recorder.stop(); 
-        recordBtn.textContent = '⏺️ Запись'; recordBtn.classList.remove('bg-rose-600/60'); 
+        recordBtn.innerHTML = '<span class="control-btn-icon">⏺️</span><span class="control-btn-text"> Запись</span>'; 
+        recordBtn.classList.remove('bg-rose-600/60'); 
         liveBadge.textContent = 'LIVE'; showNotification('✅ Запись сохранена'); 
       }
       else { 
@@ -814,7 +940,8 @@
           const a = document.createElement('a'); a.href = url; a.download = 'recording.webm'; a.click(); URL.revokeObjectURL(url); 
         }; 
         recorder.start(); 
-        recordBtn.textContent = '■ Стоп'; recordBtn.classList.add('bg-rose-600/60'); 
+        recordBtn.innerHTML = '<span class="control-btn-icon">■</span><span class="control-btn-text"> Стоп</span>'; 
+        recordBtn.classList.add('bg-rose-600/60'); 
         liveBadge.textContent = 'REC'; showNotification('⏺️ Запись началась'); 
       }
     });
@@ -884,6 +1011,16 @@
               incomingFileMeta = data; incomingBuffer = [];
             } else if (data.type === 'reaction') {
               applyReaction(data.id, data.emoji);
+            } else if (data.type === 'delete') {
+              // Remote deletion
+              const entry = messageMap.get(data.id);
+              if (entry) {
+                entry.el.classList.add('msg-deleting');
+                setTimeout(() => {
+                  entry.el.remove();
+                  messageMap.delete(data.id);
+                }, 300);
+              }
             }
           } catch (e) { console.warn('Bad JSON from dataChannel', e); }
         } else if (payload instanceof ArrayBuffer) {
@@ -898,7 +1035,7 @@
       if (pc) { try { pc.close(); } catch (e) {} }
       pc = null; dataChannel = null; remoteVideo.srcObject = null;
       waitingOverlay.style.display = 'flex'; isConnected = false; stopTimer(); stopStats(); 
-      setStatus('Ожидание'); inviteOut.value = ''; inviteIn.value = ''; pendingSignalCode = '';
+      setStatus('Ожидание'); inviteOut.value = ''; inviteIn.value = '';
       incomingFileMeta = null; incomingBuffer = [];
     }
     resetCall.addEventListener('click', resetPeer);
@@ -906,6 +1043,7 @@
     async function createInvite() {
       try {
         setStatus('Создание...', 'info'); resetPeer();
+        // Auto-enable media
         if (!localStream) { await startCamera(); }
         const peer = createPeerConnection(); 
         if (localStream) bindLocalTracks(localStream); 
@@ -913,7 +1051,7 @@
         const offer = await peer.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true }); 
         await peer.setLocalDescription(offer);
         await new Promise(r => setTimeout(r, 1200)); 
-        pendingSignalCode = buildShortCode(peer.localDescription); inviteOut.value = pendingSignalCode; 
+        inviteOut.value = buildShortCode(peer.localDescription); 
         setStatus('Код готов', 'success'); showNotification('📤 Код создан! Отправьте другу');
       } catch (err) { setStatus('Ошибка', 'error'); showNotification('❌ Ошибка: ' + err.message); }
     }
@@ -923,6 +1061,7 @@
       const remoteDesc = parseShortCode(code); if (!remoteDesc) return;
       try {
         setStatus('Подключение...', 'info'); 
+        // Auto-enable media
         if (!localStream) { await startCamera(); }
         if (!pc) { 
           const peer = createPeerConnection(); 
@@ -932,13 +1071,13 @@
         await pc.setRemoteDescription(remoteDesc);
         if (remoteDesc.type === 'offer') {
           const answer = await pc.createAnswer({ offerToReceiveAudio: true, offerToReceiveVideo: true }); await pc.setLocalDescription(answer);
-          await new Promise(r => setTimeout(r, 1200)); pendingSignalCode = buildShortCode(pc.localDescription); inviteOut.value = pendingSignalCode; 
-          setStatus('Отправьте код ответа', 'info'); showNotification('📤 Код ответа готов! Отправьте другу');
+          await new Promise(r => setTimeout(r, 1200)); inviteOut.value = buildShortCode(pc.localDescription); 
+          setStatus('Отправьте код ответа', 'info'); showNotification('📤 Код ответа готов!');
         }
       } catch (err) { setStatus('Ошибка', 'error'); showNotification('❌ Ошибка: ' + err.message); }
     }
 
-    async function copyToClipboard() { if (!inviteOut.value) return; try { await navigator.clipboard.writeText(inviteOut.value); setStatus('Скопировано!', 'success'); } catch (err) { setStatus('Ошибка копирования', 'error'); } }
+    async function copyToClipboard() { if (!inviteOut.value) return; try { await navigator.clipboard.writeText(inviteOut.value); setStatus('Скопировано!', 'success'); showNotification('📋 Код скопирован'); } catch (err) { setStatus('Ошибка копирования', 'error'); } }
     createOfferBtn.addEventListener('click', createInvite);
     connectBtn.addEventListener('click', connect);
     copyInvite.addEventListener('click', copyToClipboard);
@@ -965,10 +1104,10 @@
           });
           const loss = packetsTotal ? Math.round((packetsLost / packetsTotal) * 100) : 0; 
           const kbps = bitrate ? `${(bitrate/1000).toFixed(1)} kbps` : '—';
-          connectionQuality.textContent = `Скорость: ${kbps} | Потери: ${loss}%`;
-          if (loss > 10 || bitrate < 300000) connectionQuality.className = 'px-3 py-1 rounded-full text-xs bg-rose-500/20 border border-rose-400/50 text-rose-100';
-          else if (loss > 3) connectionQuality.className = 'px-3 py-1 rounded-full text-xs bg-amber-500/20 border border-amber-400/50 text-amber-100';
-          else connectionQuality.className = 'px-3 py-1 rounded-full text-xs bg-emerald-500/20 border border-emerald-400/50 text-emerald-100';
+          connectionQuality.textContent = `${kbps} | ${loss}%`;
+          if (loss > 10 || bitrate < 300000) connectionQuality.className = 'px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs bg-rose-500/20 border border-rose-400/50 text-rose-100 hidden sm:inline-block';
+          else if (loss > 3) connectionQuality.className = 'px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs bg-amber-500/20 border border-amber-400/50 text-amber-100 hidden sm:inline-block';
+          else connectionQuality.className = 'px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs bg-emerald-500/20 border border-emerald-400/50 text-emerald-100 hidden sm:inline-block';
         } catch (e) { console.warn('Stats error', e); }
       }, 2000);
     }
@@ -990,18 +1129,30 @@
       if (img) { const big = document.createElement('img'); big.src = img.dataset.full; openViewer(big); }
     });
 
-    let tipTimer = null;
-    document.addEventListener('mouseover', (e) => {
-      const target = e.target.closest('[data-tip]'); if (!target) return;
-      clearTimeout(tipTimer);
-      tipTimer = setTimeout(() => {
-        const text = target.getAttribute('data-tip'); tooltip.textContent = text; tooltip.classList.add('show');
-        const rect = target.getBoundingClientRect(); tooltip.style.left = Math.max(8, rect.left + rect.width/2 - tooltip.offsetWidth/2) + 'px'; tooltip.style.top = rect.top - tooltip.offsetHeight - 8 + 'px';
-      }, 1000);
-    });
-    document.addEventListener('mouseout', () => { if (tipTimer) clearTimeout(tipTimer); tooltip.classList.remove('show'); });
+    // Tooltips - only on non-touch devices
+    if (!('ontouchstart' in window)) {
+      let tipTimer = null;
+      document.addEventListener('mouseover', (e) => {
+        const target = e.target.closest('[data-tip]'); if (!target) return;
+        clearTimeout(tipTimer);
+        tipTimer = setTimeout(() => {
+          const text = target.getAttribute('data-tip'); tooltip.textContent = text; tooltip.classList.add('show');
+          const rect = target.getBoundingClientRect(); tooltip.style.left = Math.max(8, rect.left + rect.width/2 - tooltip.offsetWidth/2) + 'px'; tooltip.style.top = rect.top - tooltip.offsetHeight - 8 + 'px';
+        }, 1000);
+      });
+      document.addEventListener('mouseout', () => { if (tipTimer) clearTimeout(tipTimer); tooltip.classList.remove('show'); });
+    }
 
-    updateMediaButtons(); setStatus('Ожидание');
+    // Initialize media on page load
+    updateMediaButtons(); 
+    setStatus('Ожидание');
+    
+    // Auto-start camera on load
+    startCamera().then(success => {
+      if (success) {
+        showNotification('✅ Камера и микрофон готовы');
+      }
+    });
   </script>
 </body>
 </html>
